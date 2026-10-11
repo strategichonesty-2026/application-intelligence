@@ -1,0 +1,24 @@
+{
+  "name": "application-intelligence",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Application Intelligence & Operations: a small, separate monitoring and operations console with its own server, database and sign-in.",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node server/index.cjs",
+    "test": "node scripts-test.cjs"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "pg": "^8.21.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.3",
+    "vite": "^5.4.10"
+  }
+}

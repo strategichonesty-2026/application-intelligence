@@ -1,0 +1,45 @@
+import { useState } from 'react';
+import Icon from '../ui/Icon';
+import { Button, Field } from '../ui/primitives';
+import { Banner } from '../ui/StateMessage';
+import { signIn } from '../data/api';
+
+/** Owner sign-in. The password is checked on the server; nothing secret exists in this front-end. */
+export default function LoginScreen({ notice }) {
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (!password) { setError({ kind: 'badcredentials', message: 'Enter the owner password.' }); return; }
+    setBusy(true); setError(null);
+    try { await signIn(password); setPassword(''); }
+    catch (err) { setError({ kind: err.kind, message: err.message }); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="ai-login">
+      <form className="ai-card ai-login__card" onSubmit={submit} noValidate aria-labelledby="ai-login-title">
+        <div className="ai-brand" style={{ padding: 0, marginBottom: 12 }}><span className="ai-brand__mark"><Icon name="activity" size={16} /></span>Application Intelligence</div>
+        <h1 id="ai-login-title" className="ai-card__title" style={{ fontSize: 18 }}>Sign in</h1>
+        <p className="ai-card__sub" style={{ marginBottom: 16 }}>Monitoring data and controls are available to the application owner only.</p>
+        {notice && <div style={{ marginBottom: 12 }}><Banner tone="info">{notice}</Banner></div>}
+        {error && (
+          <div style={{ marginBottom: 12 }}>
+            <Banner tone={error.kind === 'unconfigured' || error.kind === 'ratelimited' ? 'warn' : 'bad'} icon={error.kind === 'unconfigured' ? 'lock' : undefined}>
+              {error.message}
+              {error.kind === 'unconfigured' && ' The server owner needs to set the sign-in variables described in the deployment guide.'}
+            </Banner>
+          </div>
+        )}
+        <Field label="Owner password" error={error && error.kind === 'badcredentials' ? error.message : undefined}>
+          {(p) => <input {...p} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />}
+        </Field>
+        <div style={{ marginTop: 16 }}><Button variant="primary" type="submit" loading={busy}>Sign in</Button></div>
+        <p className="ai-field__hint" style={{ marginTop: 14 }}>The password is verified by the server and is never stored in your browser. Your session ends when you close the tab or after 8 hours.</p>
+      </form>
+    </div>
+  );
+}
