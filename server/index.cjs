@@ -15,7 +15,7 @@ require('dotenv').config();
 const path = require('path');
 const fs = require('fs');
 const express = require('express');
-const { pool } = require('./db.cjs');
+const { pool, describeConfigProblem } = require('./db.cjs');
 const store = require('./services/appIntelligence/store.cjs');
 const monitor = require('./services/appIntelligence/monitor.cjs');
 const { log } = require('./services/appIntelligence/safe.cjs');
@@ -57,8 +57,14 @@ function createApp({ pool: db = pool, dist = DIST } = {}) {
 }
 
 async function boot() {
-  if (!process.env.DATABASE_URL) { console.error('DATABASE_URL is not set. Point it at this app\'s own database.'); process.exit(1); }
-  await store.initSchema(pool);
+  const problem = describeConfigProblem();
+  if (problem) { console.error(`[application-intelligence] Cannot start: ${problem}`); process.exit(1); }
+  try { await store.initSchema(pool); } catch (err) {
+    const why = { ECONNREFUSED: 'the database refused the connection (wrong host or port?)', ENOTFOUND: 'the database host name was not found (check PGHOST / the host in DATABASE_URL)', ETIMEDOUT: 'the database did not answer in time', '28P01': 'the database rejected the user name or password', '28000': 'the database rejected the login', '3D000': 'that database does not exist yet: create it first (CREATE DATABASE <name>;) and check the database name', '42501': 'the database user is not allowed to create tables in this database' }[err && err.code]
+      || (/SSL|TLS/i.test(String(err && err.message)) ? 'the SSL setting does not match the server (for a database on Railway\'s private network try APP_INTELLIGENCE_DB_SSL=off)' : `database error ${(err && err.code) || 'unknown'}`);
+    console.error(`[application-intelligence] Cannot start: ${why}.`);
+    process.exit(1);
+  }
   const app = createApp();
   const server = app.listen(PORT, () => console.log(`[application-intelligence] listening on ${PORT} (automatic checks: ${monitor.scheduleConfig().mode})`));
   monitor.start(pool); // returns without creating any timer unless APP_INTELLIGENCE_SCHEDULE=daily
