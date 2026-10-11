@@ -1,4 +1,4 @@
-// DEVELOPMENT-ONLY fixtures, reached via  #/intelligence?sample=<scenario>.
+// DEVELOPMENT-ONLY fixtures, reached via  #/?sample=<scenario>.
 // api.js loads this module only when import.meta.env.DEV is true, and the UI
 // shows a "Sample data" banner whenever it is active. The figures are fictional.
 //
