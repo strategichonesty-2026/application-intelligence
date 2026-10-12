@@ -80,7 +80,7 @@ for (const m of ['log', 'warn', 'error']) { const o = console[m]; console[m] = (
   const limiter = ownerAuth.createLoginLimiter();
   const router = require('./server/routes/appIntelligence.cjs')(fakePool, { env, limiter, failDelayMs: 1, provider: { send: async () => ({ ok: false, retryable: false, error: 'stub' }) } });
   app = express(); app.set('trust proxy', 1); app.use(express.json()); app.use('/ai', router); srv = await listen(app);
-  const routes = router.stack.filter((l) => l.route && l.route.path !== '/auth/login').flatMap((l) => Object.keys(l.route.methods).map((m) => ({ method: m.toUpperCase(), path: l.route.path.replace(/:id/, 'app-1') })));
+  const routes = router.stack.filter((l) => l.route && l.route.path !== '/auth/login' && l.route.path !== '/auth/hint').flatMap((l) => Object.keys(l.route.methods).map((m) => ({ method: m.toUpperCase(), path: l.route.path.replace(/:id/, 'app-1') })));
   const call = (rt, headers) => fetch(`${srv.url}/ai${rt.path}`, { method: rt.method, headers: { 'content-type': 'application/json', ...headers }, body: ['GET', 'DELETE'].includes(rt.method) ? undefined : '{}' });
   const privileged = routes.filter((x) => x.method !== 'GET');
   assert(privileged.length >= 5 && privileged.some((x) => x.path === '/alerts/test') && privileged.some((x) => x.method === 'DELETE') && privileged.some((x) => x.path.endsWith('/check')), `routes: ${routes.length} protected, including privileged operations (${privileged.map((x) => x.method + ' ' + x.path).join(', ')})`);
@@ -147,7 +147,7 @@ for (const m of ['log', 'warn', 'error']) { const o = console[m]; console[m] = (
   const build = spawnSync(process.execPath, ['node_modules/vite/bin/vite.js', 'build', '--outDir', out, '--emptyOutDir', '--logLevel', 'error'], { env: { ...process.env, VITE_API_KEY: DUMMY, VITE_API_URL: 'https://api.example.test' }, encoding: 'utf8' });
   const files = fs.existsSync(path.join(out, 'assets')) ? fs.readdirSync(path.join(out, 'assets')).filter((f) => f.endsWith('.js')) : [];
   const read = (f) => fs.readFileSync(path.join(out, 'assets', f), 'utf8');
-  const consoleChunk = files.filter((f) => /Owner password/.test(read(f)));
+  const consoleChunk = files.filter((f) => /Owner passphrase/.test(read(f)));
   assert(build.status === 0 && files.length >= 1 && consoleChunk.length >= 1, `build: production build succeeded (${files.length} JS files; console chunk found)`);
   assert(consoleChunk.every((f) => !read(f).includes(DUMMY) && !/x-api-key/i.test(read(f))), 'BUILD: the Application Intelligence chunk contains neither the build-time key nor the x-api-key header name');
   const allText = fs.readdirSync(out, { recursive: true }).filter((f) => /\.(js|css|html|map)$/.test(String(f))).map((f) => fs.readFileSync(path.join(out, String(f)), 'utf8'));

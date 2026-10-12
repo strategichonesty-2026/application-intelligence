@@ -58,6 +58,17 @@ const PASSWORD = 'dummy standalone passphrase 2026';
   r = await get('/api/app-intelligence/summary', { authorization: `Bearer ${token}` }); assert(r.status === 401, 'auth: bumping APP_INTELLIGENCE_SESSION_VERSION signs everyone out');
   if (savedVer === undefined) delete env.APP_INTELLIGENCE_SESSION_VERSION; else env.APP_INTELLIGENCE_SESSION_VERSION = savedVer;
 
+  // ── sign-in help (public, no secrets) ──
+  r = await get('/api/app-intelligence/auth/hint'); b = await r.json();
+  assert(r.status === 200 && b.minLength === 16 && b.hint === null, 'hint: public, says the minimum length, and shows no hint when none is configured');
+  env.APP_INTELLIGENCE_PASSWORD_HINT = '  the four words about my kitchen  '; r = await get('/api/app-intelligence/auth/hint'); b = await r.json();
+  assert(b.hint === 'the four words about my kitchen', 'hint: the owner\'s reminder is shown (trimmed)');
+  env.APP_INTELLIGENCE_OWNER_PASSWORD = PASSWORD; env.APP_INTELLIGENCE_PASSWORD_HINT = `it starts with ${PASSWORD.toUpperCase()}`; r = await get('/api/app-intelligence/auth/hint'); b = await r.json();
+  assert(b.hint === null && !JSON.stringify(b).toLowerCase().includes(PASSWORD.toLowerCase()), 'hint: a hint that contains the passphrase is never shown');
+  env.APP_INTELLIGENCE_PASSWORD_HINT = 'sk_' + 'a'.repeat(30); r = await get('/api/app-intelligence/auth/hint'); b = await r.json(); assert(b.hint === null, 'hint: anything shaped like a key is never shown');
+  env.APP_INTELLIGENCE_PASSWORD_HINT = 'x'.repeat(500); r = await get('/api/app-intelligence/auth/hint'); b = await r.json(); assert(b.hint.length === 120, 'hint: capped at 120 characters');
+  delete env.APP_INTELLIGENCE_OWNER_PASSWORD; delete env.APP_INTELLIGENCE_PASSWORD_HINT;
+
   // ── bodies and throttling ──
   r = await fetch(`${base}/api/app-intelligence/auth/login`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ password: 'x', pad: 'a'.repeat(200 * 1024) }) });
   assert(r.status === 413, `bodies: a 200 kB body is refused with 413 before parsing (got ${r.status})`);

@@ -80,6 +80,14 @@ export async function signIn(password) {
   if (res.status === 503) throw new ApiError('unconfigured', (json && json.error) || 'Sign-in is not configured on the server.');
   throw new ApiError('unavailable', 'Sign-in could not be completed. Please try again.');
 }
+/** Public sign-in help: minimum length and the owner's optional reminder. Never throws (the sign-in works without it). */
+export async function fetchSignInHelp() {
+  try {
+    const res = await fetch(`${BASE}/auth/hint`);
+    const json = await res.json();
+    return res.ok && json ? { minLength: json.minLength || 16, hint: json.hint || null } : { minLength: 16, hint: null };
+  } catch { return { minLength: 16, hint: null }; }
+}
 export const signOut = () => clearSession();
 
 export const monitoringApi = {

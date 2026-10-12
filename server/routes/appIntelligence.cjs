@@ -76,6 +76,16 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
     }
   });
 
+  // ── Sign-in help, public by necessity (shown before anyone has signed in). It carries no secret: the minimum length and an
+  //    optional reminder the owner wrote (APP_INTELLIGENCE_PASSWORD_HINT). The hint is hidden if it contains the passphrase or
+  //    anything shaped like a key or hash, so a careless hint cannot give the passphrase away. Anyone can read it.
+  router.get('/auth/hint', (_req, res) => {
+    const raw = String(env.APP_INTELLIGENCE_PASSWORD_HINT || '').trim().slice(0, 120);
+    const plain = String(env.APP_INTELLIGENCE_OWNER_PASSWORD || '');
+    const unsafe = !raw || (plain && raw.toLowerCase().includes(plain.toLowerCase())) || inventory.looksLikeSecret(raw) || /scrypt\$/i.test(raw);
+    res.json({ success: true, minLength: ownerAuth.MIN_PASSWORD_LENGTH, hint: unsafe ? null : raw });
+  });
+
   // ── Everything below requires a valid owner token. Fail closed.
   router.use((req, res, next) => {
     if (!ownerAuth.getConfig(env).configured) {

@@ -167,6 +167,8 @@ async function prepareAuthEnv(env = process.env) {
       mode = 'passphrase';
     }
   } else if (hasHash && plain) problems.push('Both APP_INTELLIGENCE_OWNER_PASSWORD_HASH and APP_INTELLIGENCE_OWNER_PASSWORD are set: the hash is used and the passphrase variable is ignored. Remove one of them.');
+  const hint = String(env.APP_INTELLIGENCE_PASSWORD_HINT || '').trim();
+  if (hint && plain && hint.toLowerCase().includes(String(plain).toLowerCase())) problems.push('APP_INTELLIGENCE_PASSWORD_HINT contains the passphrase itself, so it is NOT shown on the sign-in page. Write a reminder that does not reveal it.');
   const cfg = createOwnerAuth(AI_PROFILE).getConfig(env);
   if (!cfg.configured) problems.push(...cfg.missing.map((m) => `${m} is not set.`), ...cfg.invalid.map((m) => `${m}.`));
   return { mode, problems, configured: cfg.configured };

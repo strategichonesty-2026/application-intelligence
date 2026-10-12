@@ -22,5 +22,7 @@ const PASS = 'dummy easy setup passphrase 77';
   r = await ownerAuth.prepareAuthEnv(env3);
   assert(r.configured && env3.APP_INTELLIGENCE_OWNER_PASSWORD_HASH === real && r.problems.some((p) => /hash is used/.test(p)), 'when both are set the hash wins and the conflict is reported');
   assert(![...r.problems].join(' ').includes(PASS) && ![...r.problems].join(' ').includes(real), 'no message contains a value');
+  r = await ownerAuth.prepareAuthEnv({ APP_INTELLIGENCE_OWNER_PASSWORD: PASS, APP_INTELLIGENCE_PASSWORD_HINT: `starts with ${PASS}` });
+  assert(r.problems.some((p) => /contains the passphrase itself/.test(p)) && !r.problems.join(' ').includes(PASS), 'a hint that contains the passphrase is reported at start-up (without repeating it)');
   console.log(failures ? `\n${failures} FAILED` : '\nAll passed'); process.exit(failures ? 1 : 0);
 })();

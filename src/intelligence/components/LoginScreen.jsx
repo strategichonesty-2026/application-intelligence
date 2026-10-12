@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '../ui/Icon';
 import { Button, Field } from '../ui/primitives';
 import { Banner } from '../ui/StateMessage';
-import { signIn } from '../data/api';
+import { signIn, fetchSignInHelp } from '../data/api';
 
 /** Owner sign-in. The password is checked on the server; nothing secret exists in this front-end. */
 export default function LoginScreen({ notice }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const [help, setHelp] = useState({ minLength: 16, hint: null });
+  useEffect(() => { let alive = true; fetchSignInHelp().then((h) => { if (alive) setHelp(h); }); return () => { alive = false; }; }, []);
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!password) { setError({ kind: 'badcredentials', message: 'Enter the owner password.' }); return; }
+    if (!password) { setError({ kind: 'badcredentials', message: 'Enter your passphrase.' }); return; }
     setBusy(true); setError(null);
     try { await signIn(password); setPassword(''); }
     catch (err) { setError({ kind: err.kind, message: err.message }); }
@@ -34,10 +36,12 @@ export default function LoginScreen({ notice }) {
             </Banner>
           </div>
         )}
-        <Field label="Owner password" error={error && error.kind === 'badcredentials' ? error.message : undefined}>
+        <Field label={`Owner passphrase (${help.minLength} or more characters)`} error={error && error.kind === 'badcredentials' ? error.message : undefined}
+          hint={`Use your passphrase: ${help.minLength} or more characters. Letters, spaces and numbers are all fine; it is not digits only.${help.hint ? ` Reminder: ${help.hint}` : ''}`}>
           {(p) => <input {...p} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />}
         </Field>
         <div style={{ marginTop: 16 }}><Button variant="primary" type="submit" loading={busy}>Sign in</Button></div>
+        {help.hint && <p className="ai-field__hint" style={{ marginTop: 8 }}>The reminder above is visible to anyone who opens this page, so it should jog your memory without giving the passphrase away. After 5 wrong tries from one place, sign-in pauses for 15 minutes.</p>}
         <p className="ai-field__hint" style={{ marginTop: 14 }}>The password is verified by the server and is never stored in your browser. Your session ends when you close the tab or after 8 hours.</p>
       </form>
     </div>

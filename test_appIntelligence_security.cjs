@@ -68,7 +68,7 @@ const baseApp = { url: 'https://app.example.test', checkType: 'homepage', expect
   const router = require('./server/routes/appIntelligence.cjs')({ query: async () => ({ rows: [] }), connect: async () => { throw new Error('no db'); } }, {});
   const web = express(); web.use(express.json()); web.use('/api/app-intelligence', router); // NO shared-key middleware in front
   const srv = await listen(web);
-  const routes = router.stack.filter((l) => l.route && l.route.path !== '/auth/login').flatMap((l) => Object.keys(l.route.methods).map((m) => ({ method: m.toUpperCase(), path: l.route.path.replace(/:id/, 'app-1') })));
+  const routes = router.stack.filter((l) => l.route && l.route.path !== '/auth/login' && l.route.path !== '/auth/hint').flatMap((l) => Object.keys(l.route.methods).map((m) => ({ method: m.toUpperCase(), path: l.route.path.replace(/:id/, 'app-1') })));
   assert(routes.length >= 14, `auth: enumerated ${routes.length} protected monitoring routes`);
   let leaked = 0;
   for (const r of routes) {
