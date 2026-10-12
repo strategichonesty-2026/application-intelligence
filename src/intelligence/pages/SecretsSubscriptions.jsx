@@ -5,6 +5,7 @@ import { Banner, StateMessage } from '../ui/StateMessage';
 import { ConfirmDialog } from '../ui/Dialog';
 import DataGate, { TableSkeleton } from '../ui/DataGate';
 import Icon from '../ui/Icon';
+import { AccordionItem, AccordionBar, useOpenSet } from '../ui/Accordion';
 import { useToast } from '../ui/Toast';
 import { useResource } from '../data/useResource';
 import { monitoringApi } from '../data/api';
@@ -26,6 +27,7 @@ const D = ({ v, empty = 'Not recorded' }) => (v ? <time dateTime={v} title={abso
 function Overview({ data, go }) {
   const { credentials: cs, costs, upcoming } = data.summary;
   const lines = costLines(costs);
+  const acc = useOpenSet(cs.needsReview.length ? ['needs'] : []);
   return (
     <>
       <div className="ai-summary" role="group" aria-label="Credential summary">
@@ -34,14 +36,16 @@ function Overview({ data, go }) {
         <div className="ai-stat ai-stat--warn"><div className="ai-stat__label">Rotation required</div><div className="ai-stat__value">{cs.byStatus.rotation_required}</div><div className="ai-stat__note">{cs.byStatus.pending_migration} pending migration</div></div>
         <div className="ai-stat ai-stat--info"><div className="ai-stat__label">Unknown status</div><div className="ai-stat__value">{cs.byStatus.unknown}</div><div className="ai-stat__note">{cs.byStatus.active} active, {cs.byStatus.revoked} revoked</div></div>
       </div>
-      <div className="ai-two" style={{ marginTop: 16 }}>
-        <Card title="Needs review or rotation" subtitle="From the status and review dates you recorded." flush>
+      <Card flush className="ai-acc-card">
+        <AccordionBar ids={['needs', 'costs', 'upcoming']} state={acc} label="Click a heading to open it." />
+        <AccordionItem id="needs" state={acc} summary={<><span className="ai-acc__name">Needs review or rotation</span><span className="ai-acc__grow" /><Badge tone={cs.needsReview.length ? 'warn' : 'ok'}>{cs.needsReview.length ? `${cs.needsReview.length} to look at` : 'Nothing flagged'}</Badge></>}>
           {cs.needsReview.length ? (
             <ul className="ai-list">{cs.needsReview.map((r) => (
               <li key={r.id}><button type="button" className="ai-linkbtn" onClick={() => go('credentials', { q: r.name })}>{r.name}</button> <CredBadge status={r.status} />{r.reason === 'review_due' && <Badge tone="warn" icon="clock">Review due</Badge>}</li>))}</ul>
           ) : <StateMessage icon="check-circle" compact title="Nothing flagged">No credential is marked exposed, rotation-required, pending migration, or overdue for review.</StateMessage>}
-        </Card>
-        <Card title="Subscriptions and known costs" subtitle="Manually maintained. Not read from any billing system." flush>
+        
+        </AccordionItem>
+        <AccordionItem id="costs" state={acc} summary={<><span className="ai-acc__name">Subscriptions and known costs</span><span className="ai-acc__grow" /><span className="ai-acc__meta">{costs.total} record{costs.total === 1 ? '' : 's'}</span></>}>
           <div style={{ padding: 16 }}>
             <p><strong>{costs.total}</strong> subscription record{costs.total === 1 ? '' : 's'}: {costs.activeCount} active, {costs.unknownStatus} status unknown, {costs.cancelledCount} cancelled.</p>
             {lines.length ? lines.map((l) => (
@@ -51,27 +55,28 @@ function Overview({ data, go }) {
               </dl>)) : <p className="ai-muted">No active subscription has a recorded price yet, so no cost can be shown.</p>}
             <p className="ai-field__hint" style={{ marginTop: 8 }}>Left out of the totals: {costs.missingPrice} active with no usable price, {costs.usageBased} usage-based, {costs.unknownStatus} of unknown status. Amounts in different currencies are never added together.</p>
           </div>
-        </Card>
-      </div>
-      <Card title="Upcoming renewals and trial expirations" subtitle="Within 45 days, plus any date already passed." flush>
+        
+        </AccordionItem>
+        <AccordionItem id="upcoming" state={acc} summary={<><span className="ai-acc__name">Upcoming renewals and trial expirations</span><span className="ai-acc__grow" /><Badge tone={upcoming.length ? 'warn' : 'ok'}>{upcoming.length ? `${upcoming.length} coming up` : 'Nothing coming up'}</Badge></>}>
         {upcoming.length ? (
           <div className="ai-tablewrap"><table className="ai-table"><thead><tr><th scope="col">Service</th><th scope="col">Event</th><th scope="col">Date</th><th scope="col">When</th></tr></thead>
             <tbody>{upcoming.map((u) => (<tr key={`${u.id}-${u.kind}`}><td>{u.provider}{u.service ? ` · ${u.service}` : ''}</td><td>{u.kind === 'renewal' ? 'Renewal' : 'Trial ends'}</td><td><D v={u.date} /></td>
               <td>{u.overdue ? <Badge tone="warn" icon="alert-triangle">Date passed {-u.daysAway} d ago: check it</Badge> : u.daysAway === 0 ? 'Today' : `In ${u.daysAway} days`}</td></tr>))}</tbody></table></div>
         ) : <StateMessage icon="inbox" compact title="Nothing coming up">No renewal or trial date falls in the next 45 days (or none has been recorded).</StateMessage>}
+      
+        </AccordionItem>
       </Card>
     </>
   );
 }
 
 function CredentialsTab({ data, params, setParams, onEdit, onDelete }) {
-  const [sort, setSort] = useState({ key: 'status', dir: 'asc' });
+  const [sort] = useState({ key: 'status', dir: 'asc' });
+  const acc = useOpenSet();
   const f = { q: params.q || '', status: params.status || 'all', provider: params.provider || 'all', application: params.app || 'all', verification: params.ver || 'all' };
   const rows = useMemo(() => sortCredentials(filterCredentials(data.credentials, f), sort.key, sort.dir), [data.credentials, f.q, f.status, f.provider, f.application, f.verification, sort]); // eslint-disable-line react-hooks/exhaustive-deps
   const providers = uniqueSorted(data.credentials.map((c) => c.provider));
   const apps = uniqueSorted(data.credentials.flatMap((c) => c.applications));
-  const toggle = (key) => setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
-  const th = (key, label) => (<th scope="col" aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}><button type="button" onClick={() => toggle(key)}>{label}<Icon name={sort.key === key ? (sort.dir === 'asc' ? 'arrow-up' : 'arrow-down') : 'chevrons-up-down'} size={12} /></button></th>);
   return (
     <Card flush>
       <div className="ai-toolbar" role="search" aria-label="Filter credentials">
@@ -82,30 +87,40 @@ function CredentialsTab({ data, params, setParams, onEdit, onDelete }) {
         <Select label="Evidence" value={f.verification} onChange={(v) => setParams({ ver: v })} options={opt(VERIFICATION, 'Any evidence level')} />
       </div>
       {rows.length === 0 ? <StateMessage icon="search" compact title={data.credentials.length ? 'No credential matches these filters' : 'No credential records yet'}>{data.credentials.length ? 'Clear a filter or change the search.' : 'Add the credentials your applications use. Record names and storage locations only, never values.'}</StateMessage> : (
-        <div className="ai-tablewrap"><table className="ai-table ai-table--cards">
-          <caption className="ai-visually-hidden">Credential records, {rows.length} shown</caption>
-          <thead><tr>{th('name', 'Credential')}{th('status', 'Status')}<th scope="col">Evidence</th><th scope="col">Used by</th>{th('lastVerifiedAt', 'Last verified')}{th('lastRotatedAt', 'Last rotated')}{th('nextReviewAt', 'Next review')}<th scope="col" className="ai-num">Actions</th></tr></thead>
-          <tbody>{rows.map((c) => (
-            <tr key={c.id}>
-              <td className="ai-cell-first"><div className="ai-cell-app"><strong>{c.name}</strong><small>{c.provider || 'Provider not recorded'} · <span className="ai-tag">{c.environment}</span>{c.envVarName ? <> · <code>{c.envVarName}</code></> : null}</small>{c.storageReference && <small>Kept in: {c.storageReference}</small>}</div></td>
-              <td data-label="Status"><CredBadge status={c.status} /></td>
-              <td data-label="Evidence"><VerBadge level={c.verification} />{c.evidence && <span className="ai-sub" title={c.evidence}>{c.evidence.length > 60 ? `${c.evidence.slice(0, 60)}…` : c.evidence}</span>}</td>
-              <td data-label="Used by">{(c.applications || []).length ? c.applications.join(', ') : <span className="ai-muted">Not recorded</span>}</td>
-              <td data-label="Last verified"><D v={c.lastVerifiedAt} empty="Never" /></td>
-              <td data-label="Last rotated"><D v={c.lastRotatedAt} empty="Not recorded" /></td>
-              <td data-label="Next review"><D v={c.nextReviewAt} empty="None set" /></td>
-              <td className="ai-cell-actions"><div className="ai-actions"><Button size="sm" icon="pencil" onClick={() => onEdit(c)} aria-label={`Edit ${c.name}`}>Edit</Button><Button size="sm" icon="trash" onClick={() => onDelete({ kind: 'credential', record: c })} aria-label={`Delete record ${c.name}`}>Delete</Button></div></td>
-            </tr>))}</tbody></table></div>)}
+        <>
+          <AccordionBar ids={rows.map((c) => c.id)} state={acc} label={`${rows.length} credential${rows.length === 1 ? '' : 's'}. Click one to see its details.`} />
+          {rows.map((c) => (
+            <AccordionItem key={c.id} id={c.id} state={acc} summary={<>
+              <span className="ai-acc__name">{c.name}</span>
+              <span className="ai-acc__meta">{c.provider || 'Provider not recorded'} · {c.environment}</span>
+              <span className="ai-acc__grow" />
+              <CredBadge status={c.status} />
+            </>}>
+              <dl className="ai-facts">
+                {c.envVarName && <div><dt>Variable name</dt><dd><code>{c.envVarName}</code></dd></div>}
+                <div><dt>Kept in</dt><dd>{c.storageReference || <span className="ai-muted">Not recorded</span>}</dd></div>
+                <div><dt>Used by</dt><dd>{(c.applications || []).length ? c.applications.join(', ') : <span className="ai-muted">Not recorded</span>}</dd></div>
+                <div><dt>Evidence</dt><dd><VerBadge level={c.verification} />{c.evidence && <span className="ai-sub">{c.evidence}</span>}</dd></div>
+                <div><dt>Last verified</dt><dd><D v={c.lastVerifiedAt} empty="Never" /></dd></div>
+                <div><dt>Last rotated</dt><dd><D v={c.lastRotatedAt} empty="Not recorded" /></dd></div>
+                <div><dt>Next review</dt><dd><D v={c.nextReviewAt} empty="None set" /></dd></div>
+                {c.purpose && <div><dt>What it is for</dt><dd>{c.purpose}</dd></div>}
+              </dl>
+              <div className="ai-actions" style={{ marginTop: 12, justifyContent: 'flex-start' }}>
+                <Button size="sm" icon="pencil" onClick={() => onEdit(c)} aria-label={`Edit ${c.name}`}>Edit</Button>
+                <Button size="sm" icon="trash" onClick={() => onDelete({ kind: 'credential', record: c })} aria-label={`Delete ${c.name}`}>Delete</Button>
+              </div>
+            </AccordionItem>))}
+        </>)}
     </Card>
   );
 }
 
 function SubscriptionsTab({ data, params, setParams, onEdit, onDelete }) {
-  const [sort, setSort] = useState({ key: 'provider', dir: 'asc' });
+  const [sort] = useState({ key: 'provider', dir: 'asc' });
+  const acc = useOpenSet();
   const f = { q: params.q || '', status: params.status || 'all', frequency: params.freq || 'all' };
   const rows = useMemo(() => sortSubscriptions(filterSubscriptions(data.subscriptions, f), sort.key, sort.dir), [data.subscriptions, f.q, f.status, f.frequency, sort]); // eslint-disable-line react-hooks/exhaustive-deps
-  const toggle = (key) => setSort((s) => (s.key === key ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' } : { key, dir: 'asc' }));
-  const th = (key, label, num) => (<th scope="col" className={num ? 'ai-num' : ''} aria-sort={sort.key === key ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}><button type="button" onClick={() => toggle(key)}>{label}<Icon name={sort.key === key ? (sort.dir === 'asc' ? 'arrow-up' : 'arrow-down') : 'chevrons-up-down'} size={12} /></button></th>);
   return (
     <Card flush>
       <div className="ai-toolbar" role="search" aria-label="Filter subscriptions">
@@ -114,47 +129,68 @@ function SubscriptionsTab({ data, params, setParams, onEdit, onDelete }) {
         <Select label="Billing" value={f.frequency} onChange={(v) => setParams({ freq: v })} options={opt(FREQUENCY, 'Any frequency')} />
       </div>
       {rows.length === 0 ? <StateMessage icon="inbox" compact title={data.subscriptions.length ? 'No subscription matches these filters' : 'No subscription records yet'}>{data.subscriptions.length ? 'Clear a filter or change the search.' : 'Add the paid services your apps use. Leave the price blank until you have checked it on the provider’s billing page.'}</StateMessage> : (
-        <div className="ai-tablewrap"><table className="ai-table ai-table--cards">
-          <caption className="ai-visually-hidden">Subscription records, {rows.length} shown</caption>
-          <thead><tr>{th('provider', 'Service')}{th('status', 'Status')}<th scope="col">Plan</th>{th('price', 'Price', true)}{th('renewalDate', 'Renewal')}<th scope="col">Cap / alert</th><th scope="col">Used by</th><th scope="col" className="ai-num">Actions</th></tr></thead>
-          <tbody>{rows.map((s) => { const st = SUB_STATUS[s.status] || SUB_STATUS.unknown; return (
-            <tr key={s.id}>
-              <td className="ai-cell-first"><div className="ai-cell-app"><strong>{s.provider}</strong><small>{s.service || 'Service not recorded'}</small>{s.accountUrl && <small><a href={s.accountUrl} target="_blank" rel="noopener noreferrer">Billing page <Icon name="external-link" size={11} /></a></small>}</div></td>
-              <td data-label="Status"><Badge tone={st.tone}>{st.label}</Badge></td>
-              <td data-label="Plan">{s.plan || <span className="ai-muted">Not recorded</span>}</td>
-              <td data-label="Price" className="ai-num">{s.price == null ? <span className="ai-muted">{s.billingFrequency === 'usage' ? 'Usage-based' : 'Unknown'}</span> : <>{money(s.price, s.currency)} <span className="ai-sub">{FREQUENCY[s.billingFrequency]} · {PRICE_BASIS[s.priceBasis]}</span></>}</td>
-              <td data-label="Renewal"><D v={s.renewalDate} empty="Not recorded" />{s.trialEndsAt && <span className="ai-sub">Trial ends <D v={s.trialEndsAt} /></span>}</td>
-              <td data-label="Cap / alert">{s.spendingCap || <span className="ai-muted">None recorded</span>}<span className="ai-sub">Cap: {CAP_STATUS[s.capStatus]}</span></td>
-              <td data-label="Used by">{(s.applications || []).join(', ') || <span className="ai-muted">Not recorded</span>}</td>
-              <td className="ai-cell-actions"><div className="ai-actions"><Button size="sm" icon="pencil" onClick={() => onEdit(s)} aria-label={`Edit ${s.provider}`}>Edit</Button><Button size="sm" icon="trash" onClick={() => onDelete({ kind: 'subscription', record: s })} aria-label={`Delete record ${s.provider}`}>Delete</Button></div></td>
-            </tr>); })}</tbody></table></div>)}
+        <>
+          <AccordionBar ids={rows.map((x) => x.id)} state={acc} label={`${rows.length} subscription${rows.length === 1 ? '' : 's'}. Click one to see its details.`} />
+          {rows.map((s) => { const st = SUB_STATUS[s.status] || SUB_STATUS.unknown; return (
+            <AccordionItem key={s.id} id={s.id} state={acc} summary={<>
+              <span className="ai-acc__name">{s.provider}{s.service ? ` · ${s.service}` : ''}</span>
+              <span className="ai-acc__meta">{s.price == null ? (s.billingFrequency === 'usage' ? 'Usage-based' : 'Price unknown') : `${money(s.price, s.currency)} ${FREQUENCY[s.billingFrequency] || ''}`.trim()}</span>
+              <span className="ai-acc__grow" />
+              <Badge tone={st.tone}>{st.label}</Badge>
+            </>}>
+              <dl className="ai-facts">
+                <div><dt>Plan</dt><dd>{s.plan || <span className="ai-muted">Not recorded</span>}</dd></div>
+                <div><dt>Price</dt><dd>{s.price == null ? <span className="ai-muted">{s.billingFrequency === 'usage' ? 'Usage-based' : 'Unknown'}</span> : <>{money(s.price, s.currency)} <span className="ai-sub">{FREQUENCY[s.billingFrequency]} · {PRICE_BASIS[s.priceBasis]}</span></>}</dd></div>
+                <div><dt>Renewal</dt><dd><D v={s.renewalDate} empty="Not recorded" />{s.trialEndsAt && <span className="ai-sub">Trial ends <D v={s.trialEndsAt} /></span>}</dd></div>
+                <div><dt>Spending cap</dt><dd>{s.spendingCap || <span className="ai-muted">None recorded</span>}<span className="ai-sub">Cap: {CAP_STATUS[s.capStatus]}</span></dd></div>
+                <div><dt>Used by</dt><dd>{(s.applications || []).join(', ') || <span className="ai-muted">Not recorded</span>}</dd></div>
+                {s.usageLimits && <div><dt>Usage limits</dt><dd>{s.usageLimits}</dd></div>}
+                {s.accountUrl && <div><dt>Billing page</dt><dd><a href={s.accountUrl} target="_blank" rel="noopener noreferrer">Open billing page</a></dd></div>}
+                {s.notes && <div><dt>Notes</dt><dd>{s.notes}</dd></div>}
+              </dl>
+              <div className="ai-actions" style={{ marginTop: 12, justifyContent: 'flex-start' }}>
+                <Button size="sm" icon="pencil" onClick={() => onEdit(s)} aria-label={`Edit ${s.provider}`}>Edit</Button>
+                <Button size="sm" icon="trash" onClick={() => onDelete({ kind: 'subscription', record: s })} aria-label={`Delete ${s.provider}`}>Delete</Button>
+              </div>
+            </AccordionItem>); })}
+        </>)}
     </Card>
   );
 }
 
 function DependenciesTab({ data }) {
+  const acc = useOpenSet();
   const byId = Object.fromEntries(data.credentials.map((c) => [c.id, c]));
   const ordered = [...data.dependencies].sort((a, b) => (a.rotationStep || 999) - (b.rotationStep || 999) || a.name.localeCompare(b.name));
   if (!ordered.length) return <Card><StateMessage icon="inbox" compact title="No credentials recorded">Add credential records first; their consumers appear here.</StateMessage></Card>;
   return (
     <>
       <Banner tone="info" icon="info">Rotation order is the number you recorded (1 first). Rotate a credential only when it shows “Ready”. Receivers that check a key must accept the new value before senders start using it. Nothing on this page rotates or revokes anything.</Banner>
-      {ordered.map((d) => {
-        const c = byId[d.id]; const r = READINESS[d.readiness];
-        return (
-          <Card key={d.id} title={<>{d.rotationStep ? `${d.rotationStep}. ` : ''}{d.name}</>} subtitle={c && c.envVarName ? `Variable name: ${c.envVarName}` : undefined} actions={<><CredBadge status={c.status} /><Badge tone={r.tone} title={r.help}>{r.label}</Badge></>}>
+      <Card flush>
+        <AccordionBar ids={ordered.map((x) => x.id)} state={acc} label={`${ordered.length} credential${ordered.length === 1 ? '' : 's'}, in rotation order. Click one to see what depends on it.`} />
+        {ordered.map((d) => {
+          const c = byId[d.id]; const r = READINESS[d.readiness];
+          return (
+            <AccordionItem key={d.id} id={d.id} state={acc} summary={<>
+              <span className="ai-acc__name">{d.rotationStep ? `${d.rotationStep}. ` : ''}{d.name}</span>
+              {c && c.envVarName ? <span className="ai-acc__meta"><code>{c.envVarName}</code></span> : null}
+              <span className="ai-acc__grow" />
+              {c && <CredBadge status={c.status} />}
+              <Badge tone={r.tone} title={r.help}>{r.label}</Badge>
+            </>}>
             {d.consumers.length ? (
-              <div className="ai-tablewrap"><table className="ai-table ai-table--cards"><thead><tr><th scope="col">Consumer</th><th scope="col">Environment</th><th scope="col">Authentication</th><th scope="col">Evidence</th><th scope="col">Migration</th><th scope="col">Impact if changed</th></tr></thead>
-                <tbody>{d.consumers.map((x, i) => (<tr key={i}><td className="ai-cell-first">{x.name}</td><td data-label="Environment">{x.environment}</td><td data-label="Authentication">{x.authMethod || <span className="ai-muted">Not recorded</span>}</td><td data-label="Evidence"><VerBadge level={x.verification} /></td><td data-label="Migration">{MIGRATION[x.migration]}</td><td data-label="Impact">{x.impact || <span className="ai-muted">Not recorded</span>}</td></tr>))}</tbody></table></div>
-            ) : <p className="ai-muted">No consumers recorded. Find them before changing this credential.</p>}
-            {d.blockers.length > 0 && <div className="ai-callout ai-callout--bad" style={{ marginTop: 10 }}><Icon name="octagon-alert" size={18} /><div><strong>Do not rotate yet.</strong> Not migrated or unconfirmed: {d.blockers.map((b) => b.name).join(', ')}.</div></div>}
-            <dl className="ai-facts" style={{ marginTop: 10 }}>
-              <div><dt>Impact if revoked</dt><dd>{d.impactIfRevoked || <span className="ai-muted">Not recorded</span>}</dd></div>
-              <div><dt>Rollback</dt><dd>{d.rollbackNotes || <span className="ai-muted">Not recorded</span>}</dd></div>
-              {c.migrationNotes && <div><dt>Migration notes</dt><dd>{c.migrationNotes}</dd></div>}
-            </dl>
-          </Card>);
-      })}
+            <div className="ai-tablewrap"><table className="ai-table ai-table--cards"><thead><tr><th scope="col">Consumer</th><th scope="col">Environment</th><th scope="col">Authentication</th><th scope="col">Evidence</th><th scope="col">Migration</th><th scope="col">Impact if changed</th></tr></thead>
+              <tbody>{d.consumers.map((x, i) => (<tr key={i}><td className="ai-cell-first">{x.name}</td><td data-label="Environment">{x.environment}</td><td data-label="Authentication">{x.authMethod || <span className="ai-muted">Not recorded</span>}</td><td data-label="Evidence"><VerBadge level={x.verification} /></td><td data-label="Migration">{MIGRATION[x.migration]}</td><td data-label="Impact">{x.impact || <span className="ai-muted">Not recorded</span>}</td></tr>))}</tbody></table></div>
+          ) : <p className="ai-muted">No consumers recorded. Find them before changing this credential.</p>}
+          {d.blockers.length > 0 && <div className="ai-callout ai-callout--bad" style={{ marginTop: 10 }}><Icon name="octagon-alert" size={18} /><div><strong>Do not rotate yet.</strong> Not migrated or unconfirmed: {d.blockers.map((b) => b.name).join(', ')}.</div></div>}
+          <dl className="ai-facts" style={{ marginTop: 10 }}>
+            <div><dt>Impact if revoked</dt><dd>{d.impactIfRevoked || <span className="ai-muted">Not recorded</span>}</dd></div>
+            <div><dt>Rollback</dt><dd>{d.rollbackNotes || <span className="ai-muted">Not recorded</span>}</dd></div>
+            {c.migrationNotes && <div><dt>Migration notes</dt><dd>{c.migrationNotes}</dd></div>}
+          </dl>
+            </AccordionItem>);
+        })}
+      </Card>
     </>
   );
 }

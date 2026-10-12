@@ -356,3 +356,22 @@ a.ai-stat:hover { border-color: var(--ai-border-strong); background: #fcfcfd; }
 
 /* Standalone app: the console owns the whole page. */
 html, body, #root { height: 100%; margin: 0; }
+
+/* Accordion rows (Secrets & Subscriptions) */
+.ai-acc { border-top: 1px solid var(--ai-border); }
+.ai-acc:first-of-type { border-top: 0; }
+.ai-acc__sum { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px var(--ai-s4); }
+.ai-acc__sum::-webkit-details-marker { display: none; }
+.ai-acc__sum:hover { background: var(--ai-bg); }
+.ai-acc__sum:focus-visible { outline: 2px solid var(--ai-focus); outline-offset: -2px; }
+.ai-acc__chev { flex: none; transition: transform .15s; color: var(--ai-muted); }
+.ai-acc[open] > .ai-acc__sum .ai-acc__chev { transform: rotate(90deg); }
+.ai-acc__line { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; }
+.ai-acc__name { font-weight: 600; overflow-wrap: anywhere; }
+.ai-acc__meta { color: var(--ai-muted); font-size: 12px; }
+.ai-acc__grow { flex: 1; }
+.ai-acc__body { padding: 4px var(--ai-s4) var(--ai-s4) calc(var(--ai-s4) + 26px); }
+.ai-acc__bar { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px var(--ai-s4); border-bottom: 1px solid var(--ai-border); }
+@media (max-width: 640px) { .ai-acc__body { padding-left: var(--ai-s4); } }
+@media (prefers-reduced-motion: reduce) { .ai-acc__chev { transition: none; } }
+.ai-acc-card { margin-top: 16px; }
