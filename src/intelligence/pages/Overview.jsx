@@ -7,6 +7,7 @@ import HealthTable from '../components/HealthTable';
 import { IncidentFeed, ActivityFeed } from '../components/Feeds';
 import MonitoringBanners from '../components/MonitoringBanners';
 import AppFormDialog from '../components/AppFormDialog';
+import AskPanel from '../components/AskPanel';
 import { useResource } from '../data/useResource';
 import { monitoringApi } from '../data/api';
 import { hrefTo } from '../data/useRoute';
@@ -44,6 +45,8 @@ export default function Overview({ summaryRes, appsRes, route }) {
       </div>
 
       {apiDown ? <Card><ApiErrorState error={summaryRes.error} onRetry={reloadAll} /></Card> : (<>
+      <AskPanel />
+
       <DataGate res={summaryRes} what="the summary" skeleton={<div className="ai-summary">{[0, 1, 2, 3].map((i) => <Skeleton key={i} height={92} />)}</div>}>
         {(summary) => (
           <>

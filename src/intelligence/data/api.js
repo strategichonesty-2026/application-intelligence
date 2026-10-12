@@ -106,6 +106,8 @@ export const monitoringApi = {
   register: (values) => request('/applications', { method: 'POST', body: values }),
   update: (id, values) => request(`/applications/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }),
   remove: (id) => request(`/applications/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  uptime: (days, signal) => request(`/uptime?days=${days === 7 ? 7 : 30}`, { signal }),
+  ask: (question) => request('/ask', { method: 'POST', body: { question } }),
   hints: (signal) => request('/auth/hints', { signal }),
   saveHints: (body) => request('/auth/hints', { method: 'PUT', body }),
   starterPreview: (signal) => request('/starter/preview', { signal }),

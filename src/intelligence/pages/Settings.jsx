@@ -57,26 +57,30 @@ function AlertsCard() {
     try {
       const out = await monitoringApi.testAlert();
       setResult({ tone: 'ok', text: out.message });
-      toast.success('The email provider accepted the test message.');
+      toast.success('The provider accepted the test message.');
     } catch (err) {
       setResult({ tone: 'bad', text: err.message });
-      toast.error('The test email was not accepted. Details are shown in the card.');
+      toast.error('The test message was not accepted. Details are shown in the card.');
     } finally { setTesting(false); list.reload(); }
   };
 
   return (
-    <Card title="Email alerts" subtitle="Sent once when an incident opens and once when it recovers." flush>
+    <Card title="Alerts: email and Telegram" subtitle="Sent once when an incident opens and once when it recovers." flush>
       <div className="ai-card__body">
         <DataGate res={cfg} what="alert settings" skeleton={<TableSkeleton rows={2} />}>
           {(c) => (
             <>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                {c.configured ? <Badge tone="ok" icon="check-circle">Configured</Badge> : <Badge tone="warn" icon="alert-triangle">Not configured</Badge>}
-                {c.configured && <span className="ai-muted">Recipients: {c.recipients.join(', ')} · provider: Resend</span>}
+                {c.configured ? <Badge tone="ok" icon="check-circle">Email on</Badge> : <Badge tone="warn" icon="alert-triangle">Email off</Badge>}
+                {c.telegram && (c.telegram.configured ? <Badge tone="ok" icon="check-circle">Telegram on</Badge> : <Badge tone="warn" icon="alert-triangle">Telegram off</Badge>)}
+                {c.configured && <span className="ai-muted">Email to: {c.recipients.join(', ')}</span>}
                 <span style={{ flex: 1 }} />
-                <Button icon="inbox" loading={testing} disabled={!c.configured} onClick={sendTest}>Send test email</Button>
+                <Button icon="inbox" loading={testing} disabled={!c.configured && !(c.telegram && c.telegram.configured)} onClick={sendTest}>Send test alert</Button>
               </div>
-              {!c.configured && (
+              {c.telegram && !c.telegram.configured && (
+                <p className="ai-field__hint" style={{ marginTop: 12 }}>To get alerts on Telegram, set <code>TELEGRAM_BOT_TOKEN</code> and <code>TELEGRAM_CHAT_ID</code> on the server, then redeploy. Steps are in the deployment guide.</p>
+              )}
+              {!c.configured && !(c.telegram && c.telegram.configured) && (
                 <div className="ai-callout ai-callout--warn" style={{ marginTop: 12 }}>
                   <div>
                     <strong>No alert email will be sent until this is configured.</strong> {c.message}

@@ -5,6 +5,7 @@ import { StateMessage, Banner } from '../ui/StateMessage';
 import DataGate, { TableSkeleton } from '../ui/DataGate';
 import { ActivityFeed, incidentTitle } from '../components/Feeds';
 import { CycleBadge } from './Settings';
+import UptimeView from '../components/UptimeView';
 import { useResource } from '../data/useResource';
 import { monitoringApi } from '../data/api';
 import { hrefTo } from '../data/useRoute';
@@ -55,7 +56,7 @@ function EventCard({ item }) {
 
 export default function SystemHealth({ summaryRes, appsRes, route }) {
   const p = route.params;
-  const tab = p.tab === 'checks' ? 'checks' : 'incidents';
+  const tab = p.tab === 'checks' ? 'checks' : p.tab === 'uptime' ? 'uptime' : 'incidents';
   const page = Math.max(1, Number(p.page) || 1);
   const setP = (patch) => route.replaceParams({ ...p, page: undefined, ...patch });
   const filters = { application: p.application, status: p.status, severity: p.severity, kind: p.kind, range: p.range };
@@ -93,9 +94,11 @@ export default function SystemHealth({ summaryRes, appsRes, route }) {
 
       <div role="tablist" aria-label="Health views" className="ai-tabs">
         <button role="tab" aria-selected={tab === 'incidents'} onClick={() => route.replaceParams({ ...p, tab: undefined, page: undefined })}>Incidents and faults</button>
+        <button role="tab" aria-selected={tab === 'uptime'} onClick={() => route.replaceParams({ ...p, tab: 'uptime', page: undefined })}>Uptime graph</button>
         <button role="tab" aria-selected={tab === 'checks'} onClick={() => route.replaceParams({ ...p, tab: 'checks', page: undefined })}>Check history</button>
       </div>
 
+      {tab === 'uptime' ? <UptimeView /> : (
       <Card flush>
         <div className="ai-toolbar" role="search" aria-label="Filter history">
           <Select label="Application" value={p.application || 'all'} onChange={(v) => setP({ application: v })} options={appOptions} />
@@ -153,6 +156,7 @@ export default function SystemHealth({ summaryRes, appsRes, route }) {
           </DataGate>
         )}
       </Card>
+      )}
       {mon && mon.health && (mon.health.state === 'stalled' || mon.health.state === 'never_ran') && (
         <Banner tone="bad" icon="wrench">The monitoring service is not completing cycles, so this history will not grow until it is restarted.</Banner>
       )}

@@ -47,7 +47,7 @@ function nextRunAt(now, hourUtc) {
 
 async function checkApplication(pool, app, { trigger = 'scheduled', allowPrivate = false, check = runCheckWithRetry, alertsConfigured } = {}) {
   const result = await check(app, { allowPrivate });
-  const configured = alertsConfigured !== undefined ? alertsConfigured : alerts.getAlertConfig().configured;
+  const configured = alertsConfigured !== undefined ? alertsConfigured : alerts.anyChannelConfigured();
   await store.recordResult(pool, app.id, result, { trigger, alertsConfigured: configured });
   return result;
 }
@@ -69,12 +69,12 @@ async function mapLimit(items, limit, fn) {
  * Owner-triggered check of every eligible application ("Check all"). Never includes manual-only
  * applications. Returns { cooldown } (seconds) instead of running when called again too soon.
  */
-async function checkAll(pool, { allowPrivate = false, check, provider = alerts.createResendProvider(), env = process.env, now = Date.now() } = {}) {
+async function checkAll(pool, { allowPrivate = false, check, env = process.env, provider = alerts.createNotifier({ env }), now = Date.now() } = {}) {
   const wait = CHECK_ALL_COOLDOWN_MS - (now - state.lastCheckAllAt);
   if (wait > 0) return { cooldownSeconds: Math.ceil(wait / 1000) };
   state.lastCheckAllAt = now;
   const apps = (await store.listApplications(pool)).filter(isEligibleForCheckAll);
-  const alertsConfigured = alerts.getAlertConfig(env).configured;
+  const alertsConfigured = alerts.anyChannelConfigured(env);
   const results = await mapLimit(apps, MAX_PARALLEL_CHECKS, async (a) => {
     if (state.inFlight.has(a.id)) return { id: a.id, name: a.name, skipped: 'already being checked' };
     if (a.lastCheckedAt && now - new Date(a.lastCheckedAt).getTime() < MANUAL_COOLDOWN_MS) return { id: a.id, name: a.name, skipped: 'checked a few seconds ago' };
@@ -94,7 +94,7 @@ async function checkAll(pool, { allowPrivate = false, check, provider = alerts.c
  * Returns { skipped } when another instance holds the lock, otherwise { ok, checked, failedToRecord }.
  */
 async function tick(pool, opts = {}) {
-  const { allowPrivate = false, check, provider = alerts.createResendProvider(), env = process.env, heartbeat = sendHeartbeat, minGapMs = MIN_GAP_BETWEEN_PASSES_MS } = opts;
+  const { allowPrivate = false, check, env = process.env, provider = alerts.createNotifier({ env }), heartbeat = sendHeartbeat, minGapMs = MIN_GAP_BETWEEN_PASSES_MS } = opts;
   let client;
   try { client = await pool.connect(); } catch (err) { state.lastTickError = 'database unavailable'; log.error('tick', err); return { ok: false, error: 'database' }; }
   try {
@@ -109,7 +109,7 @@ async function tick(pool, opts = {}) {
     try {
       const apps = await store.listApplications(pool);
       const due = apps.filter((a) => isDaily(a) && !state.inFlight.has(a.id));
-      const alertsConfigured = alerts.getAlertConfig(env).configured;
+      const alertsConfigured = alerts.anyChannelConfigured(env);
       await mapLimit(due, MAX_PARALLEL_CHECKS, async (a) => {
         if (state.stopping) return;
         state.inFlight.add(a.id);

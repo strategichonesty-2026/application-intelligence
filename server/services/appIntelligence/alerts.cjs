@@ -47,6 +47,69 @@ function getAlertConfig(env = process.env) {
   };
 }
 
+/** Telegram is a second, optional channel. A bot token (a secret) and a chat id are service variables; nothing is stored in the database. */
+function getTelegramConfig(env = process.env) {
+  const missing = []; const invalid = [];
+  if (!env.TELEGRAM_BOT_TOKEN) missing.push('TELEGRAM_BOT_TOKEN');
+  else if (!/^\d{5,15}:[A-Za-z0-9_-]{30,50}$/.test(env.TELEGRAM_BOT_TOKEN)) invalid.push('TELEGRAM_BOT_TOKEN (expected the token BotFather gave you, like 123456:ABC...)');
+  if (!env.TELEGRAM_CHAT_ID) missing.push('TELEGRAM_CHAT_ID');
+  else if (!/^-?\d{4,20}$/.test(String(env.TELEGRAM_CHAT_ID).trim())) invalid.push('TELEGRAM_CHAT_ID (expected a number, such as 123456789)');
+  const configured = !missing.length && !invalid.length;
+  return { configured, provider: 'telegram', missing, invalid, message: configured ? 'Telegram alerts are configured.' : `Telegram alerts are not configured. ${[...missing.map((m) => `${m} is not set`), ...invalid.map((i) => `${i} is invalid`)].join('; ')}.` };
+}
+
+/** True when at least one channel (email or Telegram) can send. Used to decide whether incidents queue alerts. */
+const anyChannelConfigured = (env = process.env) => getAlertConfig(env).configured || getTelegramConfig(env).configured;
+
+/** Telegram provider. `fetchImpl` is injectable so tests never touch the network. Plain text only (no formatting parser). */
+function createTelegramProvider({ env = process.env, fetchImpl = fetch } = {}) {
+  return {
+    name: 'telegram',
+    async send({ subject, text }) {
+      const cfg = getTelegramConfig(env);
+      if (!cfg.configured) return { ok: false, retryable: false, error: cfg.message };
+      let res;
+      try {
+        res = await fetchImpl(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/sendMessage`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ chat_id: String(env.TELEGRAM_CHAT_ID).trim(), text: `${subject}\n\n${text}`.slice(0, 4000), disable_web_page_preview: true }),
+          signal: AbortSignal.timeout(10000),
+        });
+      } catch (err) {
+        return { ok: false, retryable: true, error: `Could not reach Telegram (${err && err.name === 'TimeoutError' ? 'timed out' : 'network error'}).` };
+      }
+      let body = null; try { body = await res.json(); } catch { /* not JSON */ }
+      if (res.ok && body && body.ok && body.result && body.result.message_id !== undefined) return { ok: true, providerId: `tg-${body.result.message_id}` };
+      const retryable = res.status === 429 || res.status >= 500;
+      const hint = res.status === 401 ? ' Check TELEGRAM_BOT_TOKEN.' : res.status === 400 || res.status === 403 ? ' Check TELEGRAM_CHAT_ID, and that you pressed Start in the chat with your bot.' : '';
+      return { ok: false, retryable, error: `Telegram answered HTTP ${res.status}.${hint}`.slice(0, 300) };
+    },
+  };
+}
+
+/**
+ * Sends through every configured channel. "ok" if at least one accepted it. A channel that failed while another
+ * succeeded is noted in the result but not retried (a retry would send the other channel's copy twice).
+ */
+function createNotifier({ env = process.env, email = createResendProvider({ env }), telegram = createTelegramProvider({ env }) } = {}) {
+  return {
+    name: 'notifier',
+    async send(msg) {
+      const channels = [];
+      if (getAlertConfig(env).configured) channels.push(['email', email]);
+      if (getTelegramConfig(env).configured) channels.push(['telegram', telegram]);
+      if (!channels.length) return { ok: false, retryable: false, error: 'No alert channel is configured (email or Telegram).' };
+      const results = await Promise.all(channels.map(async ([name, p]) => [name, await p.send(msg)]));
+      const accepted = results.filter(([, r]) => r.ok);
+      if (accepted.length) {
+        const failed = results.filter(([, r]) => !r.ok).map(([n]) => n);
+        return { ok: true, providerId: accepted.map(([, r]) => r.providerId).join(','), channels: accepted.map(([n]) => n), failedChannels: failed };
+      }
+      return { ok: false, retryable: results.every(([, r]) => r.retryable), error: results.map(([n, r]) => `${n}: ${r.error}`).join(' ').slice(0, 300) };
+    },
+  };
+}
+
 /** Resend provider. `fetchImpl` is injectable so tests never touch the network. */
 function createResendProvider({ env = process.env, fetchImpl = fetch } = {}) {
   return {
@@ -166,8 +229,8 @@ async function dispatchDue(pool, provider, { limit = 10 } = {}) {
 
 /** Owner-initiated test: sent immediately, result reported exactly as the provider answered. */
 async function sendTest(pool, provider, env = process.env) {
-  const cfg = getAlertConfig(env);
-  if (!cfg.configured) return { ok: false, configured: false, message: cfg.message, missing: cfg.missing, invalid: cfg.invalid };
+  const cfg = getAlertConfig(env); const tg = getTelegramConfig(env);
+  if (!cfg.configured && !tg.configured) return { ok: false, configured: false, message: `${cfg.message} ${tg.message}`, missing: cfg.missing, invalid: cfg.invalid };
   const recent = await pool.query(`SELECT 1 FROM ai_alerts WHERE event = 'test' AND created_at > NOW() - INTERVAL '30 seconds' LIMIT 1`);
   if (recent.rows.length) return { ok: false, configured: true, tooSoon: true, message: 'A test was sent less than 30 seconds ago. Wait a moment before sending another.' };
   const msg = buildMessage('test', {});
@@ -182,11 +245,11 @@ async function sendTest(pool, provider, env = process.env) {
     return { ok: false, configured: true, message: `The provider did not accept the test: ${out.error}` };
   }
   return out.status === 'sent'
-    ? { ok: true, configured: true, message: 'The email provider accepted the test message. This confirms the provider took it, not that it reached the inbox. Check your inbox (and spam) to confirm.', providerId: `${String(out.providerId).slice(0, 8)}…` }
+    ? { ok: true, configured: true, message: 'The provider accepted the test message. This confirms it took the message, not that it reached the inbox or Telegram chat. Check your inbox (and spam) or Telegram to confirm.', providerId: `${String(out.providerId).slice(0, 8)}…` }
     : { ok: false, configured: true, message: `The provider did not accept the test: ${out.error}` };
 }
 
 module.exports = {
-  getAlertConfig, createResendProvider, buildMessage, dispatchDue, sendTest, recentAlerts, deliver, parseAddress,
+  getAlertConfig, getTelegramConfig, anyChannelConfigured, createResendProvider, createTelegramProvider, createNotifier, buildMessage, dispatchDue, sendTest, recentAlerts, deliver, parseAddress,
   MAX_ATTEMPTS, BACKOFF_MINUTES,
 };

@@ -13,6 +13,8 @@ const starter = require('../services/appIntelligence/starter.cjs');
 const { deriveStatus, needsAttention, monitoringHealth, staleLimitSeconds, CHECK_TYPES, MODES, FAILURES_TO_OPEN_INCIDENT, SUCCESSES_TO_RESOLVE } = require('../services/appIntelligence/status.cjs');
 const { validateApplicationInput, ENVIRONMENTS } = require('../services/appIntelligence/validation.cjs');
 const alerts = require('../services/appIntelligence/alerts.cjs');
+const uptime = require('../services/appIntelligence/uptime.cjs');
+const briefing = require('../services/appIntelligence/briefing.cjs');
 const ownerAuth = require('../services/appIntelligence/ownerAuth.cjs');
 const { heartbeatConfig } = require('../services/appIntelligence/heartbeat.cjs');
 const { log } = require('../services/appIntelligence/safe.cjs');
@@ -43,7 +45,7 @@ function present(app, latestIncident, now = new Date()) {
   };
 }
 
-function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_PRIVATE === 'true', check, provider = alerts.createResendProvider(), env = process.env, limiter = ownerAuth.createLoginLimiter(), failDelayMs = 250 } = {}) {
+function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_PRIVATE === 'true', check, env = process.env, provider = alerts.createNotifier({ env }), limiter = ownerAuth.createLoginLimiter(), failDelayMs = 250 } = {}) {
   const router = express.Router();
   // req.ip, never the raw X-Forwarded-For header: Express applies it only for the trusted proxy hops.
   const clientKey = (req) => String(req.ip || (req.socket && req.socket.remoteAddress) || 'unknown');
@@ -185,7 +187,7 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
         lastCycleCompletedAt: cycle ? cycle.value : null,
         health: monitoringHealth(cycle ? cycle.value : null, apps, now, { schedule: monitor.scheduleConfig(env).mode }),
         lastCheckRecordedAt: lastRecorded, hasIncidentHistory: Object.keys(incidents).length > 0,
-        alerting: { configured: alerts.getAlertConfig().configured },
+        alerting: { configured: alerts.anyChannelConfigured(env) },
       },
     });
   }));
@@ -196,7 +198,7 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
       checkTypes: Object.entries(CHECK_TYPES).map(([id, v]) => ({ id, ...v })),
       rules: { checkModes: MODES, failuresToOpenIncident: FAILURES_TO_OPEN_INCIDENT, successesToResolve: SUCCESSES_TO_RESOLVE, retentionDays: 30 },
       monitoring: monitor.status(env), privateTargetsAllowed: allowPrivate,
-      alerting: alerts.getAlertConfig(),
+      alerting: alerts.getAlertConfig(env),
       heartbeat: (() => { const h = heartbeatConfig(); return { configured: h.configured, valid: h.valid, error: h.valid ? null : h.error }; })(),
     });
   }));
@@ -228,6 +230,12 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
     const [incidents, recent] = await Promise.all([store.latestIncidentByApp(pool), store.recentChecks(pool, { applicationId: app.id, limit: 10 })]);
     const timeline = await store.listTimeline(pool, { application: app.id, pageSize: 10 });
     res.json({ success: true, application: present(app, incidents[app.id]), incidents: timeline.items, recentChecks: recent });
+  }));
+
+  router.get('/uptime', wrap(async (req, res) => {
+    const days = req.query.days === '7' ? 7 : 30;
+    const [apps, rows] = await Promise.all([store.listApplications(pool), store.uptimeDaily(pool, days)]);
+    res.json({ success: true, ...uptime.buildUptime({ apps, rows, days, now: new Date() }) });
   }));
 
   router.get('/applications/:id/history', wrap(async (req, res) => {
@@ -297,7 +305,7 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
   }));
 
   router.get('/alerts/config', wrap(async (_req, res) => {
-    res.json({ success: true, ...alerts.getAlertConfig(), maxAttempts: alerts.MAX_ATTEMPTS, retryBackoffMinutes: alerts.BACKOFF_MINUTES });
+    res.json({ success: true, ...alerts.getAlertConfig(env), telegram: alerts.getTelegramConfig(env), maxAttempts: alerts.MAX_ATTEMPTS, retryBackoffMinutes: alerts.BACKOFF_MINUTES });
   }));
 
   router.get('/alerts', wrap(async (_req, res) => {
@@ -307,6 +315,14 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
   router.post('/alerts/test', wrap(async (_req, res) => {
     const out = await alerts.sendTest(pool, provider);
     res.status(out.ok ? 200 : out.tooSoon ? 429 : out.configured ? 502 : 400).json({ success: out.ok, ...out });
+  }));
+
+  // ── "What's wrong?": a rule-based briefing from the owner's own records. No AI, no outside call, no cost.
+  router.post('/ask', wrap(async (req, res) => {
+    const question = String((req.body && req.body.question) || '').slice(0, 300);
+    const [apps, credentials, subscriptions] = await Promise.all([store.listApplications(pool), inventory.listCredentials(pool), inventory.listSubscriptions(pool)]);
+    const full = briefing.buildBriefing({ apps, credentials, subscriptions, now: new Date() });
+    res.json({ success: true, ...briefing.answer(question, full) });
   }));
 
   // ── Secrets & Subscriptions: a hand-maintained inventory of METADATA ONLY (no secret value is ever accepted,

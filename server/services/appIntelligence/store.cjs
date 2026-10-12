@@ -360,6 +360,18 @@ async function checkHistory(pool, applicationId, range = '24h') {
   return rows.map((r) => ({ checkedAt: iso(r.checked_at), outcome: r.outcome, responseMs: r.response_ms, httpStatus: r.http_status }));
 }
 
+/** Per application per UTC day: how many checks got an answer and how many failed (inconclusive and monitor errors are left out). */
+async function uptimeDaily(pool, days = 30) {
+  const n = Math.min(Math.max(Number(days) || 30, 1), 30);
+  const { rows } = await pool.query(
+    `SELECT application_id, to_char(date_trunc('day', checked_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS day,
+            COUNT(*) FILTER (WHERE outcome IN ('ok','degraded'))::int AS answered,
+            COUNT(*) FILTER (WHERE outcome = 'failed')::int AS failed
+     FROM ai_checks WHERE checked_at >= (date_trunc('day', NOW() AT TIME ZONE 'UTC') - (($1::int - 1) || ' days')::interval) AT TIME ZONE 'UTC'
+     GROUP BY 1, 2`, [n]);
+  return rows;
+}
+
 async function lastCheckRecordedAt(pool) {
   const { rows } = await pool.query('SELECT MAX(checked_at) AS t FROM ai_checks');
   return iso(rows[0].t);
@@ -368,5 +380,5 @@ async function lastCheckRecordedAt(pool) {
 module.exports = {
   initSchema, listApplications, getApplication, createApplication, updateApplication, deleteApplication,
   getOpenIncident, recordResult, setServiceState, getServiceState, pruneChecks, listTimeline, latestIncidentByApp, countOpenIncidents,
-  recentChecks, checkHistory, lastCheckRecordedAt, RANGES,
+  recentChecks, checkHistory, uptimeDaily, lastCheckRecordedAt, RANGES,
 };

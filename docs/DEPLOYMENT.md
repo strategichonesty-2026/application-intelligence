@@ -53,3 +53,23 @@ Set one more variable on the service: `APP_INTELLIGENCE_VIEWER_PASSWORD` (16 or 
 Settings → **Sign-in reminders** lets the owner type a short reminder for the owner passphrase and, if view-only sign-in is on, one for the viewer passphrase. They appear under the sign-in box ("Forgot it? Reminders"). They are stored in the database, take effect immediately, and need no redeploy. They are public: the server refuses a reminder that contains, or equals, either passphrase or looks like a key. The `APP_INTELLIGENCE_PASSWORD_HINT` and `APP_INTELLIGENCE_VIEWER_PASSWORD_HINT` variables still work as a fallback until a reminder is saved.
 
 There is no "reset by email". If a passphrase is forgotten, set a new value for `APP_INTELLIGENCE_OWNER_PASSWORD` (or `APP_INTELLIGENCE_VIEWER_PASSWORD`) in Railway Variables and Deploy.
+
+## Telegram alerts (optional, free)
+
+Telegram is a second alert channel next to email. It sends the same two messages (incident opened, recovered) and the test message. Nothing is sent unless both variables are set.
+
+1. In Telegram, open **@BotFather**, send `/newbot`, follow the two questions. It gives you a **token** (looks like `123456789:AA...`). Treat it like a password.
+2. Open your new bot and press **Start**, then send it any message.
+3. Find your chat number: open `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser (replace `<TOKEN>`), and look for `"chat":{"id":123456789`. That number is the chat id. (Do not paste the token into chat or tickets.)
+4. In Railway Variables add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`, then Deploy.
+5. Settings → "Alerts: email and Telegram" → **Send test alert**. "Accepted" means Telegram took the message; confirm it on your phone.
+
+If both email and Telegram are set, a message counts as sent when either accepts it. A channel that failed while the other worked is not retried (a retry would send the other copy twice).
+
+## Ask: what is wrong? (no AI)
+
+The Overview page has an **Ask** box. It reads your own records (checks, credential register, subscription register) and applies fixed rules: Critical (app confirmed down, key recorded as exposed), Needs attention (slow or never-checked apps, keys due for rotation or review, renewals within 7 days or past), Good to know (gaps in your records). It never calls an AI or any outside service and costs nothing. It only knows what is recorded, so empty records give "nothing wrong" together with a note that this is not proof.
+
+## Uptime graph
+
+System Health → **Uptime graph**: one bar per day per app, from recorded checks only (7 or 30 days; records are kept 30 days). A day with no checks is dotted, never counted as up. Visitor, login and watch counts are Phase 2 and not included.
