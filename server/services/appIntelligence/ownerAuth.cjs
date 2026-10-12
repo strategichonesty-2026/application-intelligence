@@ -148,10 +148,34 @@ function createLoginLimiter({ perClient = 5, slowAfter = 20, slowDelayMs = 2000,
   };
 }
 
+/**
+ * Easy set-up: if APP_INTELLIGENCE_OWNER_PASSWORD (a passphrase of 16+ characters) is set and no hash is, the hash is
+ * made at start-up, and a stable signing secret is derived from the passphrase when none is given. The passphrase
+ * then lives as a service variable (the same place any secret lives), instead of a pre-made hash. A hash/secret that
+ * is set always wins. Never logs or returns a value. Returns { mode, problems }.
+ */
+async function prepareAuthEnv(env = process.env) {
+  const problems = [];
+  const hasHash = Boolean(env.APP_INTELLIGENCE_OWNER_PASSWORD_HASH);
+  const plain = env.APP_INTELLIGENCE_OWNER_PASSWORD;
+  let mode = 'hash';
+  if (!hasHash && plain) {
+    if (typeof plain !== 'string' || plain.length < MIN_PASSWORD_LENGTH) problems.push(`APP_INTELLIGENCE_OWNER_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters (it is ${String(plain).length}).`);
+    else {
+      env.APP_INTELLIGENCE_OWNER_PASSWORD_HASH = await hashPassword(plain);
+      if (!env.APP_INTELLIGENCE_SESSION_SECRET) env.APP_INTELLIGENCE_SESSION_SECRET = crypto.createHmac('sha256', plain).update('application-intelligence/session-signing/v1').digest('base64url');
+      mode = 'passphrase';
+    }
+  } else if (hasHash && plain) problems.push('Both APP_INTELLIGENCE_OWNER_PASSWORD_HASH and APP_INTELLIGENCE_OWNER_PASSWORD are set: the hash is used and the passphrase variable is ignored. Remove one of them.');
+  const cfg = createOwnerAuth(AI_PROFILE).getConfig(env);
+  if (!cfg.configured) problems.push(...cfg.missing.map((m) => `${m} is not set.`), ...cfg.invalid.map((m) => `${m}.`));
+  return { mode, problems, configured: cfg.configured };
+}
+
 const ai = createOwnerAuth(AI_PROFILE);
 
 module.exports = {
-  hashPassword, verifyPassword, createLoginLimiter, parseHash, createOwnerAuth, AI_PROFILE, TOKEN_TTL_SECONDS, MIN_PASSWORD_LENGTH, DEFAULT_SCRYPT, MAX_CONCURRENT_VERIFICATIONS,
+  hashPassword, verifyPassword, createLoginLimiter, parseHash, createOwnerAuth, prepareAuthEnv, AI_PROFILE, TOKEN_TTL_SECONDS, MIN_PASSWORD_LENGTH, DEFAULT_SCRYPT, MAX_CONCURRENT_VERIFICATIONS,
   // Application Intelligence instance (unchanged public API)
   getConfig: ai.getConfig, issueToken: ai.issueToken, verifyToken: ai.verifyToken,
 };

@@ -18,6 +18,7 @@ const express = require('express');
 const { pool, describeConfigProblem, ensureDatabase } = require('./db.cjs');
 const store = require('./services/appIntelligence/store.cjs');
 const monitor = require('./services/appIntelligence/monitor.cjs');
+const ownerAuth = require('./services/appIntelligence/ownerAuth.cjs');
 const { log } = require('./services/appIntelligence/safe.cjs');
 const bodyLimits = require('./middleware/bodyLimits.cjs');
 const { createLimiter } = require('./middleware/rateLimiter.cjs');
@@ -69,6 +70,9 @@ async function boot() {
     console.error(`[application-intelligence] Cannot start: ${why}.`);
     process.exit(1);
   }
+  const auth = await ownerAuth.prepareAuthEnv();
+  console.log(`[application-intelligence] sign-in: ${auth.configured ? `ready (${auth.mode === 'passphrase' ? 'from APP_INTELLIGENCE_OWNER_PASSWORD' : 'from the hash and secret variables'})` : 'NOT ready'}`);
+  auth.problems.forEach((p) => console.error(`[application-intelligence] sign-in problem: ${p}`));
   const app = createApp();
   const server = app.listen(PORT, () => console.log(`[application-intelligence] listening on ${PORT} (automatic checks: ${monitor.scheduleConfig().mode})`));
   monitor.start(pool); // returns without creating any timer unless APP_INTELLIGENCE_SCHEDULE=daily
