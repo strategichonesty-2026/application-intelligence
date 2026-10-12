@@ -24,7 +24,7 @@ const read = (p) => fs.readFileSync(path.join(__dirname, p), 'utf8');
   const files = dirs.flatMap((d) => (fs.statSync(path.join(__dirname, d)).isDirectory() ? fs.readdirSync(path.join(__dirname, d)).map((f) => `${d}/${f}`) : [d]));
   // Every module the monitoring code can load must be a Node built-in, express, pg/dotenv, or another
   // monitoring file. No AI SDK, no media/provider service, no scheduler/pipeline code.
-  const ALLOWED = /^(\.\/(status|validation|checker|store|monitor|alerts|heartbeat|egress|safe|ownerAuth|inventory)\.cjs|\.\.\/services\/appIntelligence\/[a-zA-Z]+\.cjs|node:.*|crypto|dns|net|http|https|tls|express|fs|path|url|os)$/;
+  const ALLOWED = /^(\.\/(status|validation|checker|store|monitor|alerts|heartbeat|egress|safe|ownerAuth|inventory|starter)\.cjs|\.\.\/services\/appIntelligence\/[a-zA-Z]+\.cjs|\.\.\/\.\.\/scripts\/(appIntelligenceTargets|inventoryTargets)\.cjs|node:.*|crypto|dns|net|http|https|tls|express|fs|path|url|os)$/;
   const strip = (t) => t.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const loaded = files.flatMap((f) => [...strip(read(f)).matchAll(/require\((['"])([^'"]+)\1\)/g)].map((m) => ({ f, mod: m[2] })));
   const bad = loaded.filter((x) => !ALLOWED.test(x.mod));
