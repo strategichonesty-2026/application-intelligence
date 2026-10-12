@@ -20,7 +20,8 @@ Nothing here has been done. Every step that creates a service, a database or a D
    - Optional: `APP_INTELLIGENCE_ENV=production`, `TRUST_PROXY_HOPS=1` (set 2 if Cloudflare also proxies the hostname), Resend and heartbeat variables.
    - Leave `APP_INTELLIGENCE_SCHEDULE` unset (monitoring stays manual).
 4. **Deploy**, then open the service address. You should see the sign-in screen. Check `GET /healthz` returns `{"status":"ok"}`.
-5. **Seed the starting records** (optional, approval-gated), from your computer against the new database only:
+5. **Load the starting records**: sign in, open **Settings → Suggested starting records**, check the preview and click **Load missing records**. It adds only what is missing (applications are matched by web address, so ones you registered yourself are skipped), runs no check, and changes or deletes nothing. (The command-line seed scripts below do the same and are optional.)
+5b. **Seed from the command line** (optional, approval-gated), from your computer against the new database only:
    `DATABASE_URL=<this app's database url> node server/scripts/seedApplications.cjs --apply --confirm-host <db host>` and the same for `seedInventory.cjs`. Both are dry runs without `--apply`, skip existing rows and never delete.
 6. **Custom domain** (optional): Railway → Settings → Networking → add the domain, create the DNS record Railway shows. Then, if Cloudflare proxies it, set `TRUST_PROXY_HOPS=2`.
 

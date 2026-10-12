@@ -9,6 +9,7 @@ const express = require('express');
 const store = require('../services/appIntelligence/store.cjs');
 const monitor = require('../services/appIntelligence/monitor.cjs');
 const inventory = require('../services/appIntelligence/inventory.cjs');
+const starter = require('../services/appIntelligence/starter.cjs');
 const { deriveStatus, needsAttention, monitoringHealth, staleLimitSeconds, CHECK_TYPES, MODES, FAILURES_TO_OPEN_INCIDENT, SUCCESSES_TO_RESOLVE } = require('../services/appIntelligence/status.cjs');
 const { validateApplicationInput, ENVIRONMENTS } = require('../services/appIntelligence/validation.cjs');
 const alerts = require('../services/appIntelligence/alerts.cjs');
@@ -300,6 +301,16 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
     res.json({ success: true, subscription: (await inventory.updateSubscription(pool, req.params.id, value)) || existing });
   }));
   router.delete('/subscriptions/:id', wrap(async (req, res) => { if (!(await inventory.deleteSubscription(pool, req.params.id))) return notFound(res); res.json({ success: true }); }));
+
+  // ── Starting records: preview, then add only what is missing (see services/appIntelligence/starter.cjs).
+  router.get('/starter/preview', wrap(async (_req, res) => { res.json({ success: true, plan: await starter.plan(pool) }); }));
+  router.post('/starter/load', wrap(async (req, res) => {
+    const b = req.body || {};
+    const sel = { applications: b.applications === true, credentials: b.credentials === true, subscriptions: b.subscriptions === true };
+    if (!sel.applications && !sel.credentials && !sel.subscriptions) return res.status(400).json({ success: false, error: 'Choose at least one kind of record to load.' });
+    const added = await starter.load(pool, sel);
+    res.json({ success: true, added, plan: await starter.plan(pool) });
+  }));
 
   router.get('/activity', wrap(async (req, res) => {
     const checks = await store.recentChecks(pool, { applicationId: req.query.application || undefined, limit: Math.min(Number(req.query.limit) || 15, 50) });
