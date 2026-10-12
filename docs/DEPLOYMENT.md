@@ -38,3 +38,12 @@ Redeploy the previous Railway deployment, or delete the service; nothing else de
 
 ## Not verified here
 The Railway setup itself (nothing was deployed), `TRUST_PROXY_HOPS`, outbound internet from the service (needed for checks), and whether your Postgres plan allows creating a second database. These are staging checks.
+
+## Optional: view-only sign-in (for showing friends)
+
+Set one more variable on the service: `APP_INTELLIGENCE_VIEWER_PASSWORD` (16 or more characters, and different from the owner passphrase), then Deploy.
+
+- Same sign-in page. The viewer passphrase opens a simple "App status" page: app names, Up / Slow / Down / Not sure, and when each was last checked.
+- It never shows web addresses, error text, incidents, settings, or the Secrets & Subscriptions register, and it cannot run checks. The server refuses a viewer session on every other route (`test_viewer.cjs`).
+- To switch it off, delete the variable and Deploy. To end viewer sessions early, change `APP_INTELLIGENCE_SESSION_VERSION` (this also ends the owner session).
+- Anyone you give the passphrase to can see app names and status until you change or remove it.

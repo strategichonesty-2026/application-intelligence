@@ -14,7 +14,8 @@ import Settings from './pages/Settings';
 import SecretsSubscriptions from './pages/SecretsSubscriptions';
 import { StateMessage } from './ui/StateMessage';
 import LoginScreen from './components/LoginScreen';
-import { useSignedIn } from './data/auth';
+import { useSignedIn, useRole } from './data/auth';
+import Showcase from './pages/Showcase';
 import { sampleScenario } from './data/api';
 import { LinkButton } from './ui/primitives';
 import { hrefTo } from './data/useRoute';
@@ -47,7 +48,9 @@ function Console() {
 function AuthGate() {
   const signedIn = useSignedIn();
   const sample = Boolean(sampleScenario()); // development fixtures only (stripped from production builds)
+  const role = useRole();
   if (!signedIn && !sample) return <LoginScreen />;
+  if (role === 'viewer') return <Showcase />;
   return <Console />;
 }
 

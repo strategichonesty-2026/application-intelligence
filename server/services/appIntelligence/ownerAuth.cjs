@@ -88,16 +88,16 @@ function createOwnerAuth(profile = AI_PROFILE) {
     return { configured: !missing.length && !invalid.length, missing, invalid };
   }
 
-  function issueToken(env = process.env, now = Date.now()) {
+  function issueToken(env = process.env, now = Date.now(), role = 'owner') {
     const header = b64u(JSON.stringify({ alg: 'HS256', typ }));
     const iat = Math.floor(now / 1000);
-    const payload = b64u(JSON.stringify({ aud: audience, sub: 'owner', iat, exp: iat + TOKEN_TTL_SECONDS, ver: version(env), jti: crypto.randomBytes(8).toString('hex') }));
+    const payload = b64u(JSON.stringify({ aud: audience, sub: role, iat, exp: iat + TOKEN_TTL_SECONDS, ver: version(env), jti: crypto.randomBytes(8).toString('hex') }));
     const body = `${header}.${payload}`;
     return { token: `${body}.${sign(body, env[secretVar])}`, expiresAt: new Date((iat + TOKEN_TTL_SECONDS) * 1000).toISOString() };
   }
 
   /** Returns the payload for a valid token, or null. Never throws. */
-  function verifyToken(token, env = process.env, now = Date.now()) {
+  function verifyToken(token, env = process.env, now = Date.now(), role = 'owner') {
     try {
       if (typeof token !== 'string' || token.length > 2000 || !env[secretVar]) return null;
       const parts = token.split('.');
@@ -110,7 +110,7 @@ function createOwnerAuth(profile = AI_PROFILE) {
       if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null;
       const payload = JSON.parse(unb64u(p).toString('utf8'));
       const nowSec = Math.floor(now / 1000);
-      if (payload.aud !== audience || payload.sub !== 'owner') return null;
+      if (payload.aud !== audience || payload.sub !== role) return null; // an owner token and a viewer token are not interchangeable
       if (!Number.isFinite(payload.exp) || payload.exp <= nowSec) return null;
       if (!Number.isFinite(payload.iat) || payload.iat > nowSec + 60) return null;
       if (payload.ver !== version(env)) return null; // bump the version to revoke every session
@@ -167,6 +167,13 @@ async function prepareAuthEnv(env = process.env) {
       mode = 'passphrase';
     }
   } else if (hasHash && plain) problems.push('Both APP_INTELLIGENCE_OWNER_PASSWORD_HASH and APP_INTELLIGENCE_OWNER_PASSWORD are set: the hash is used and the passphrase variable is ignored. Remove one of them.');
+  // Optional view-only passphrase (for showing friends): hashed at start-up, never stored or logged.
+  const viewer = env.APP_INTELLIGENCE_VIEWER_PASSWORD;
+  if (viewer && !env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH) {
+    if (typeof viewer !== 'string' || viewer.length < MIN_PASSWORD_LENGTH) problems.push(`APP_INTELLIGENCE_VIEWER_PASSWORD must be at least ${MIN_PASSWORD_LENGTH} characters, so the view-only sign-in is OFF.`);
+    else if (plain && viewer === plain) problems.push('APP_INTELLIGENCE_VIEWER_PASSWORD is the same as the owner passphrase, so the view-only sign-in is OFF. Use a different one.');
+    else env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH = await hashPassword(viewer);
+  }
   const hint = String(env.APP_INTELLIGENCE_PASSWORD_HINT || '').trim();
   if (hint && plain && hint.toLowerCase().includes(String(plain).toLowerCase())) problems.push('APP_INTELLIGENCE_PASSWORD_HINT contains the passphrase itself, so it is NOT shown on the sign-in page. Write a reminder that does not reveal it.');
   const cfg = createOwnerAuth(AI_PROFILE).getConfig(env);

@@ -62,15 +62,19 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
         return res.status(429).json({ success: false, code: 'too_many_attempts', error: 'Too many sign-in attempts. Wait and try again later.' });
       }
       if (gate.delayMs) await new Promise((r) => setTimeout(r, gate.delayMs)); // global brake: slower, never a lock-out
-      const ok = await ownerAuth.verifyPassword(req.body && req.body.password, env.APP_INTELLIGENCE_OWNER_PASSWORD_HASH);
-      if (!ok) {
+      const given = req.body && req.body.password;
+      const ok = await ownerAuth.verifyPassword(given, env.APP_INTELLIGENCE_OWNER_PASSWORD_HASH);
+      // Optional view-only passphrase: same sign-in form, but the token it earns only opens /showcase.
+      const viewerOk = !ok && env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH && await ownerAuth.verifyPassword(given, env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH);
+      if (!ok && !viewerOk) {
         limiter.fail(client);
         await new Promise((r) => setTimeout(r, failDelayMs)); // blunts timing and rapid guessing
         return res.status(401).json({ success: false, code: 'bad_credentials', error: 'Incorrect password.' });
       }
       limiter.succeed(client);
-      const { token, expiresAt } = ownerAuth.issueToken(env);
-      return res.json({ success: true, token, expiresAt });
+      const role = ok ? 'owner' : 'viewer';
+      const { token, expiresAt } = ownerAuth.issueToken(env, Date.now(), role);
+      return res.json({ success: true, token, expiresAt, role });
     } catch (err) {
       log.error('sign-in', err);
       return res.status(500).json({ success: false, error: 'Sign-in could not be completed.' });
@@ -85,6 +89,20 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
     const plain = String(env.APP_INTELLIGENCE_OWNER_PASSWORD || '');
     const unsafe = !raw || (plain && raw.toLowerCase().includes(plain.toLowerCase())) || inventory.looksLikeSecret(raw) || /scrypt\$/i.test(raw);
     res.json({ success: true, minLength: ownerAuth.MIN_PASSWORD_LENGTH, hint: unsafe ? null : raw });
+  });
+
+  // ── Showcase: names and up/down only, for the view-only passphrase (an owner token works too). It never includes URLs,
+  //    error text, incidents or anything from the credential register.
+  router.get('/showcase', (req, res) => {
+    if (!ownerAuth.getConfig(env).configured) return res.status(503).json({ success: false, code: 'auth_not_configured', error: 'Sign-in is not configured on the server.' });
+    const m = /^Bearer ([A-Za-z0-9._-]{20,2000})$/.exec(String(req.headers.authorization || ''));
+    const ok = m && (ownerAuth.verifyToken(m[1], env) || ownerAuth.verifyToken(m[1], env, Date.now(), 'viewer'));
+    if (!ok) return res.status(401).json({ success: false, code: 'auth_required', error: 'Sign in to continue.' });
+    const now = new Date();
+    return store.listApplications(pool).then((apps) => res.json({
+      success: true, generatedAt: now.toISOString(),
+      applications: apps.map((a) => ({ name: a.name, status: deriveStatus(a, now).status, lastCheckedAt: a.lastCheckedAt })),
+    })).catch((err) => { log.error('showcase', err); res.status(500).json({ success: false, error: 'The status could not be read.' }); });
   });
 
   // ── Everything below requires a valid owner token. Fail closed.

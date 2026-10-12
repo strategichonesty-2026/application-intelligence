@@ -22,8 +22,8 @@ const emit = () => listeners.forEach((l) => l());
 
 export const getToken = () => (session && new Date(session.expiresAt).getTime() > Date.now() ? session.token : null);
 
-export function setSession(token, expiresAt) {
-  session = { token, expiresAt };
+export function setSession(token, expiresAt, role = 'owner') {
+  session = { token, expiresAt, role };
   try { window.sessionStorage.setItem(KEY, JSON.stringify(session)); } catch { /* storage blocked: stay signed in for this page only */ }
   emit();
 }
@@ -36,4 +36,5 @@ export function clearSession() {
 
 const subscribe = (l) => { listeners.add(l); return () => listeners.delete(l); };
 const snapshot = () => getToken();
+export const useRole = () => useSyncExternalStore(subscribe, () => (getToken() && session.role) || null);
 export const useSignedIn = () => Boolean(useSyncExternalStore(subscribe, snapshot));

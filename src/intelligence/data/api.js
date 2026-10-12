@@ -74,7 +74,7 @@ export async function signIn(password) {
     res = await fetch(`${BASE}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
   } catch { throw new ApiError('unavailable', 'The dashboard could not reach the monitoring API.'); }
   let json = null; try { json = await res.json(); } catch { /* not JSON */ }
-  if (res.ok && json && json.token) { setSession(json.token, json.expiresAt); return; }
+  if (res.ok && json && json.token) { setSession(json.token, json.expiresAt, json.role === 'viewer' ? 'viewer' : 'owner'); return; }
   if (res.status === 401) throw new ApiError('badcredentials', 'That password is not correct.');
   if (res.status === 429) throw new ApiError('ratelimited', (json && json.error) || 'Too many attempts. Try again later.');
   if (res.status === 503) throw new ApiError('unconfigured', (json && json.error) || 'Sign-in is not configured on the server.');
@@ -89,6 +89,8 @@ export async function fetchSignInHelp() {
   } catch { return { minLength: 16, hint: null }; }
 }
 export const signOut = () => clearSession();
+
+export const showcaseApi = { list: (signal) => request('/showcase', { signal }) };
 
 export const monitoringApi = {
   summary: (signal) => request('/summary', { signal }),
