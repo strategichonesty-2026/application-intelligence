@@ -6,6 +6,7 @@ import { StateMessage } from '../ui/StateMessage';
 import DataGate, { TableSkeleton } from '../ui/DataGate';
 import AppFormDialog from '../components/AppFormDialog';
 import StarterRecords from '../components/StarterRecords';
+import SignInReminders from '../components/SignInReminders';
 import { ConfirmDialog } from '../ui/Dialog';
 import { useToast } from '../ui/Toast';
 import { useResource } from '../data/useResource';
@@ -215,6 +216,8 @@ export default function Settings({ appsRes, summaryRes }) {
       </div>
 
       <AlertsCard />
+
+      <SignInReminders />
 
       <StarterRecords onLoaded={refreshApps} />
 

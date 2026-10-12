@@ -18,6 +18,7 @@ const SECRET_URL = 'https://private-host.example.invalid/secret-path';
   await ownerAuth.prepareAuthEnv(env);
   const now = new Date().toISOString();
   store.listApplications = async () => [{ name: 'Demo App', url: SECRET_URL, checkType: 'homepage', enabled: true, mode: 'manual', lastCheckedAt: now, lastSuccessAt: now, lastOutcome: 'ok', lastReason: 'internal detail', lastSummary: 'internal detail', failStreak: 0, intervalSeconds: 3600, expectedStatus: 200 }];
+  const kv = {}; store.getServiceState = async (_p, k) => (k in kv ? { value: kv[k] } : null); store.setServiceState = async (_p, k, v) => { kv[k] = v; };
   const express = require('express');
   const mk = (e) => { const app = express(); app.use(express.json()); app.use('/api/app-intelligence', require('./server/routes/appIntelligence.cjs')({ query: async () => ({ rows: [] }) }, { env: e, failDelayMs: 1 })); return new Promise((res) => { const s = app.listen(0, '127.0.0.1', () => res(s)); }); };
   const srv = await mk(env); const base = `http://127.0.0.1:${srv.address().port}/api/app-intelligence`;
@@ -40,6 +41,16 @@ const SECRET_URL = 'https://private-host.example.invalid/secret-path';
   const post = await fetch(`${base}/check-all`, { method: 'POST', headers: { authorization: `Bearer ${v.body.token}`, 'content-type': 'application/json' }, body: '{}' });
   assert(post.status === 401, 'viewer token cannot run checks');
   assert((await get('/auth/session', o.body.token)).status === 200, 'owner token still opens the owner routes');
+  // ── sign-in reminders ──
+  const hints = () => fetch(`${base}/auth/hint`).then((x) => x.json());
+  const put = (body, token) => fetch(`${base}/auth/hints`, { method: 'PUT', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' }, body: JSON.stringify(body) });
+  assert((await hints()).hint === null, 'no reminder saved: the sign-in page shows none');
+  assert((await put({ owner: 'x' }, v.body.token)).status === 401 && (await get('/auth/hints', v.body.token)).status === 401, 'a viewer cannot read or change reminders');
+  assert((await put({ owner: 'first school plus lucky number', viewer: 'the usual friends word' }, o.body.token)).status === 200, 'the owner can save reminders');
+  let h = await hints(); assert(h.hint === 'first school plus lucky number' && h.viewerHint === 'the usual friends word', 'both reminders are shown on the public sign-in help');
+  assert((await put({ owner: `it is ${OWNER}` }, o.body.token)).status === 400 && (await put({ owner: OWNER }, o.body.token)).status === 400 && (await put({ viewer: VIEWER }, o.body.token)).status === 400, 'a reminder containing or equal to a passphrase is refused');
+  assert((await put({ owner: 'x'.repeat(121) }, o.body.token)).status === 400, 'a too-long reminder is refused');
+  assert((await put({ owner: '' }, o.body.token)).status === 200 && (await hints()).hint === null, 'clearing a reminder hides it');
   srv.close();
 
   const envOff = { APP_INTELLIGENCE_OWNER_PASSWORD: OWNER }; await ownerAuth.prepareAuthEnv(envOff);

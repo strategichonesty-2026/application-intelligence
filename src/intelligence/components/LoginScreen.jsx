@@ -9,7 +9,7 @@ export default function LoginScreen({ notice }) {
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
-  const [help, setHelp] = useState({ minLength: 16, hint: null });
+  const [help, setHelp] = useState({ minLength: 16, hint: null, viewerHint: null });
   useEffect(() => { let alive = true; fetchSignInHelp().then((h) => { if (alive) setHelp(h); }); return () => { alive = false; }; }, []);
 
   const submit = async (e) => {
@@ -37,11 +37,20 @@ export default function LoginScreen({ notice }) {
           </div>
         )}
         <Field label={`Owner passphrase (${help.minLength} or more characters)`} error={error && error.kind === 'badcredentials' ? error.message : undefined}
-          hint={`Use your passphrase: ${help.minLength} or more characters. Letters, spaces and numbers are all fine; it is not digits only.${help.hint ? ` Reminder: ${help.hint}` : ''}`}>
+          hint={`Use your passphrase: ${help.minLength} or more characters. Letters, spaces and numbers are all fine; it is not digits only.`}>
           {(p) => <input {...p} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} autoFocus />}
         </Field>
         <div style={{ marginTop: 16 }}><Button variant="primary" type="submit" loading={busy}>Sign in</Button></div>
-        {help.hint && <p className="ai-field__hint" style={{ marginTop: 8 }}>The reminder above is visible to anyone who opens this page, so it should jog your memory without giving the passphrase away. After 5 wrong tries from one place, sign-in pauses for 15 minutes.</p>}
+        {(help.hint || help.viewerHint) && (
+          <div className="ai-field__hint" style={{ marginTop: 10 }}>
+            <strong>Forgot it? Reminders:</strong>
+            <ul style={{ margin: '4px 0 0', paddingLeft: 18 }}>
+              {help.hint && <li>Owner: {help.hint}</li>}
+              {help.viewerHint && <li>View-only: {help.viewerHint}</li>}
+            </ul>
+          </div>
+        )}
+        {(help.hint || help.viewerHint) && <p className="ai-field__hint" style={{ marginTop: 8 }}>The reminders above is visible to anyone who opens this page, so it should jog your memory without giving the passphrase away. After 5 wrong tries from one place, sign-in pauses for 15 minutes.</p>}
         <p className="ai-field__hint" style={{ marginTop: 14 }}>The password is verified by the server and is never stored in your browser. Your session ends when you close the tab or after 8 hours.</p>
       </form>
     </div>

@@ -85,8 +85,8 @@ export async function fetchSignInHelp() {
   try {
     const res = await fetch(`${BASE}/auth/hint`);
     const json = await res.json();
-    return res.ok && json ? { minLength: json.minLength || 16, hint: json.hint || null } : { minLength: 16, hint: null };
-  } catch { return { minLength: 16, hint: null }; }
+    return res.ok && json ? { minLength: json.minLength || 16, hint: json.hint || null, viewerHint: json.viewerHint || null } : { minLength: 16, hint: null, viewerHint: null };
+  } catch { return { minLength: 16, hint: null, viewerHint: null }; }
 }
 export const signOut = () => clearSession();
 
@@ -106,6 +106,8 @@ export const monitoringApi = {
   register: (values) => request('/applications', { method: 'POST', body: values }),
   update: (id, values) => request(`/applications/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }),
   remove: (id) => request(`/applications/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  hints: (signal) => request('/auth/hints', { signal }),
+  saveHints: (body) => request('/auth/hints', { method: 'PUT', body }),
   starterPreview: (signal) => request('/starter/preview', { signal }),
   starterLoad: (selection) => request('/starter/load', { method: 'POST', body: selection }),
   inventory: (signal) => request('/inventory', { signal }),

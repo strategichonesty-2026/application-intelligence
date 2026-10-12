@@ -84,11 +84,25 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
   // ── Sign-in help, public by necessity (shown before anyone has signed in). It carries no secret: the minimum length and an
   //    optional reminder the owner wrote (APP_INTELLIGENCE_PASSWORD_HINT). The hint is hidden if it contains the passphrase or
   //    anything shaped like a key or hash, so a careless hint cannot give the passphrase away. Anyone can read it.
-  router.get('/auth/hint', (_req, res) => {
-    const raw = String(env.APP_INTELLIGENCE_PASSWORD_HINT || '').trim().slice(0, 120);
-    const plain = String(env.APP_INTELLIGENCE_OWNER_PASSWORD || '');
-    const unsafe = !raw || (plain && raw.toLowerCase().includes(plain.toLowerCase())) || inventory.looksLikeSecret(raw) || /scrypt\$/i.test(raw);
-    res.json({ success: true, minLength: ownerAuth.MIN_PASSWORD_LENGTH, hint: unsafe ? null : raw });
+  // Hints are chosen by the owner in Settings (stored in the database) or, as a fallback, by the *_PASSWORD_HINT variables.
+  const HINT_MAX = 120;
+  const hintUnsafe = (text, ...plains) => !text || inventory.looksLikeSecret(text) || /scrypt\$/i.test(text) || plains.some((p) => p && text.toLowerCase().includes(String(p).toLowerCase()));
+  async function currentHints() {
+    const read = async (key, envVar) => {
+      let raw = '';
+      try { const row = await store.getServiceState(pool, key); raw = row && row.value ? String(row.value) : ''; } catch { raw = ''; }
+      return (raw || String(env[envVar] || '')).trim().slice(0, HINT_MAX);
+    };
+    return { owner: await read('hint_owner', 'APP_INTELLIGENCE_PASSWORD_HINT'), viewer: await read('hint_viewer', 'APP_INTELLIGENCE_VIEWER_PASSWORD_HINT') };
+  }
+  router.get('/auth/hint', async (_req, res) => {
+    const h = await currentHints();
+    const ownerPlain = env.APP_INTELLIGENCE_OWNER_PASSWORD; const viewerPlain = env.APP_INTELLIGENCE_VIEWER_PASSWORD;
+    res.json({
+      success: true, minLength: ownerAuth.MIN_PASSWORD_LENGTH,
+      hint: hintUnsafe(h.owner, ownerPlain, viewerPlain) ? null : h.owner,
+      viewerHint: env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH && !hintUnsafe(h.viewer, ownerPlain, viewerPlain) ? h.viewer : null,
+    });
   });
 
   // ── Showcase: names and up/down only, for the view-only passphrase (an owner token works too). It never includes URLs,
@@ -118,6 +132,31 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
   });
 
   router.get('/auth/session', (req, res) => res.json({ success: true, expiresAt: new Date(req.owner.exp * 1000).toISOString() }));
+
+  // Owner-only: read and change the sign-in reminders. A reminder must never reveal a passphrase.
+  router.get('/auth/hints', async (_req, res) => {
+    const h = await currentHints();
+    res.json({ success: true, owner: h.owner, viewer: h.viewer, viewerEnabled: Boolean(env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH), max: HINT_MAX });
+  });
+  router.put('/auth/hints', async (req, res) => {
+    try {
+      const body = req.body || {}; const out = {};
+      for (const field of ['owner', 'viewer']) {
+        if (body[field] === undefined) continue;
+        const text = String(body[field]).trim();
+        if (text.length > HINT_MAX) return res.status(400).json({ success: false, error: `A reminder can be at most ${HINT_MAX} characters.` });
+        const bad = text && (hintUnsafe(text, env.APP_INTELLIGENCE_OWNER_PASSWORD, env.APP_INTELLIGENCE_VIEWER_PASSWORD)
+          || await ownerAuth.verifyPassword(text, env.APP_INTELLIGENCE_OWNER_PASSWORD_HASH)
+          || (env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH && await ownerAuth.verifyPassword(text, env.APP_INTELLIGENCE_VIEWER_PASSWORD_HASH)));
+        if (bad) return res.status(400).json({ success: false, error: 'That reminder looks like the passphrase or a key. Write something that only jogs your memory.' });
+        out[field] = text;
+      }
+      // An empty value stores a blank, which hides the reminder. (The variable fallback is only used if nothing was ever saved.)
+      if (out.owner !== undefined) await store.setServiceState(pool, 'hint_owner', out.owner || ' ');
+      if (out.viewer !== undefined) await store.setServiceState(pool, 'hint_viewer', out.viewer || ' ');
+      return res.json({ success: true });
+    } catch (err) { log.error('hints', err); return res.status(500).json({ success: false, error: 'The reminder could not be saved.' }); }
+  });
 
   const wrap = (fn) => (req, res) => fn(req, res).catch((err) => {
     log.error(`${req.method} ${req.path}`, err);

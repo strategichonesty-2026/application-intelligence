@@ -47,3 +47,9 @@ Set one more variable on the service: `APP_INTELLIGENCE_VIEWER_PASSWORD` (16 or 
 - It never shows web addresses, error text, incidents, settings, or the Secrets & Subscriptions register, and it cannot run checks. The server refuses a viewer session on every other route (`test_viewer.cjs`).
 - To switch it off, delete the variable and Deploy. To end viewer sessions early, change `APP_INTELLIGENCE_SESSION_VERSION` (this also ends the owner session).
 - Anyone you give the passphrase to can see app names and status until you change or remove it.
+
+## Sign-in reminders (hints)
+
+Settings → **Sign-in reminders** lets the owner type a short reminder for the owner passphrase and, if view-only sign-in is on, one for the viewer passphrase. They appear under the sign-in box ("Forgot it? Reminders"). They are stored in the database, take effect immediately, and need no redeploy. They are public: the server refuses a reminder that contains, or equals, either passphrase or looks like a key. The `APP_INTELLIGENCE_PASSWORD_HINT` and `APP_INTELLIGENCE_VIEWER_PASSWORD_HINT` variables still work as a fallback until a reminder is saved.
+
+There is no "reset by email". If a passphrase is forgotten, set a new value for `APP_INTELLIGENCE_OWNER_PASSWORD` (or `APP_INTELLIGENCE_VIEWER_PASSWORD`) in Railway Variables and Deploy.
