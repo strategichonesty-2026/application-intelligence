@@ -1,6 +1,6 @@
 # Personal Intelligence Hub (PIH): Phase 0 assessment and plan
 
-Status: **proposal only. Nothing in this document is built.** No code, tables, deployments or data were changed to write it.
+Status: **design approved by the owner (21 November 2026). Only PR 1's importer is built** (pull request #4: local-only, tested, **not merged or deployed**). Everything else in this document is still a proposal. Mission context: [INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md](INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md) (Hub = Objective 2).
 Date: 21 November 2026. Source of truth: the actual code of `application-intelligence` (main) and, for storage and AI, `strategic-honesty-media-studio` (read-only look).
 Goal: never have to remember which chatbot, which month, or where a decision was left. Help the owner remember, connect, evaluate and act.
 
@@ -16,12 +16,20 @@ Goal: never have to remember which chatbot, which month, or where a decision was
 
 Companion documents: `PIH_SECURITY_AND_STORAGE.md`, `PIH_LOCAL_SETUP.md`, `PIH_SAMPLE_EXPORTS.md`; and, in the acceptance pull request, `BACKUP_AND_RESTORE.md`.
 
+## Mission alignment (added with the Mission Charter)
+- **Objective:** 2, "Remember our knowledge". The Hub feeds Objectives 4 and 5 (matching and validating opportunities) but does not replace the Portfolio or the Library.
+- **Reuse, do not duplicate:** the importer in PR #4 is the Hub's first and only importer. Later work extends it; it is not rebuilt.
+- **One register of ideas and decisions:** Hub findings are **suggestions with a source quote**. Accepting one **creates a Portfolio item that links back** to the conversation. The Hub keeps no second register (see overlap O1 in `CAPABILITY_GAP_ASSESSMENT.md`). The finding kinds in section 3 are to be reduced to the Portfolio's types plus the Hub-only kinds `project`, `action` and `research_question` before PR 3.
+- **Where Hub data lives:** by the owner's decision the importer writes to a **local** database. The deployed console therefore cannot show Hub figures on the Overview until a secure, approved counts-only integration exists (decisions D1 and A9, `CAPABILITY_GAP_ASSESSMENT.md`, section 5). Until then the deployed Overview shows "unavailable", never zero, and no Hub number or text reaches production. Section 3's phrase "the console's own database" describes the later, separately approved design, not what is built.
+- **Every Hub pull request answers the six mission questions** (charter, section 6).
+- **Next step for the Hub:** Sprint 2 and Sprint 7 of `MISSION_ROADMAP.md` (validate the importer on real exports, then local search). AI extraction stays Sprint 10 and needs its own approval.
+
 ## 0. What exists today (so nothing is re-built)
 | Item | State |
 |---|---|
-| Command Center (repositories, portfolio, open-source library) | Built, live, accepted (PR #1, acceptance PR #2). |
-| Personal Intelligence Hub | **Not started.** No tables, routes, screens or importers exist. |
-| Importing ChatGPT/Claude exports | Not built. |
+| Command Center (repositories, portfolio, open-source library) | Built and **live** (PR #1 merged and deployed; first real sync found 20 repositories). The acceptance review was done and approved by the owner, but its fixes are in **PR #2, not merged**, so the live version predates them. |
+| Personal Intelligence Hub | **Importer built (PR #4, awaiting approval).** No search, screens, routes or findings exist. |
+| Importing ChatGPT/Claude exports | **Built and tested on synthetic structures** in a local-only command-line tool (`server/pih/`, `docs/PIH_IMPORTER.md`). **Not validated on real exports.** |
 | AI extraction, weekly report | Not built. |
 
 ## 1. Existing capabilities that can be reused (verified in code)
@@ -52,7 +60,7 @@ Owner's exports (ZIP/JSON, stay on the owner's computer, never modified)
         |  PR 1: local import command (reads files, writes rows)
         v
 PostgreSQL (the console's own database)
-   original layer:    pih_imports -> pih_conversations -> pih_messages   (raw JSON kept per conversation)
+   original layer:    pih_imports -> pih_conversations -> pih_messages   (original text kept per conversation, unchanged: stored as exact text plus SHA-256, not JSONB, see `PIH_IMPORTER.md`)
    derived layer:     pih_findings, pih_summaries, pih_ai_runs            (always labelled "AI-generated", always linked to a source)
         |
 Express routes (existing owner gate)  ->  React "Hub" pages  ->  weekly report (existing daily pass)
