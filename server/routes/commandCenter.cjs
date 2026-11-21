@@ -9,6 +9,7 @@
 //   PATCH /repos/:id        owner decisions: type, priority, purpose, live URL, link to a monitored application
 //   POST  /sync             pull from GitHub now (manual sync)
 //   GET   /sync/status      when the last sync ran and what happened; whether a token is configured
+//   GET   /portfolio        search the Master Portfolio (?q=&type=&status=&repo=); POST/PATCH/DELETE manage items; POST /portfolio/import
 //   GET   /attention        what needs the owner's attention, each item with its evidence and when it was read
 'use strict';
 
@@ -18,6 +19,7 @@ const repos = require('../services/appIntelligence/repos.cjs');
 const repoSync = require('../services/appIntelligence/repoSync.cjs');
 const github = require('../services/appIntelligence/github.cjs');
 const inventory = require('../services/appIntelligence/inventory.cjs');
+const portfolio = require('../services/appIntelligence/portfolio.cjs');
 const { buildAttention } = require('../services/appIntelligence/attention.cjs');
 const { deriveStatus } = require('../services/appIntelligence/status.cjs');
 const { log } = require('../services/appIntelligence/safe.cjs');
@@ -107,6 +109,37 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
       sync: { configured: configured(), last },
     }, now.getTime());
     res.json({ success: true, generatedAt: now.toISOString(), ...result });
+  }));
+
+  // ── Master Portfolio ──
+  const notFound = (res) => res.status(404).json({ success: false, error: 'Portfolio item not found.' });
+  const bad = (res, errors) => res.status(400).json({ success: false, error: errors.join(' '), errors });
+  router.get('/portfolio', wrap(async (req, res) => {
+    const types = String(req.query.type || '').split(',').filter((t) => portfolio.TYPES.includes(t));
+    const status = portfolio.STATUSES.includes(req.query.status) ? req.query.status : undefined;
+    const [items, counts] = await Promise.all([portfolio.listItems(pool, { types, status, repo: req.query.repo ? String(req.query.repo).slice(0, 100) : undefined, q: req.query.q ? String(req.query.q) : undefined }), portfolio.countByType(pool)]);
+    res.json({ success: true, generatedAt: new Date().toISOString(), items, counts, types: portfolio.TYPES, statuses: portfolio.STATUSES });
+  }));
+  router.post('/portfolio', wrap(async (req, res) => {
+    const { errors, value } = portfolio.validateItem(req.body || {});
+    const claim = errors.length ? [] : portfolio.checkClaims({ evidenceLevel: 'unverified', ...value });
+    if (errors.length || claim.length) return bad(res, [...errors, ...claim]);
+    if ((await portfolio.totalRows(pool)) >= portfolio.MAX_ROWS) return bad(res, [`The portfolio is full (${portfolio.MAX_ROWS} records).`]);
+    res.status(201).json({ success: true, item: await portfolio.createItem(pool, value) });
+  }));
+  router.patch('/portfolio/:id', wrap(async (req, res) => {
+    const current = await portfolio.getItem(pool, req.params.id);
+    if (!current) return notFound(res);
+    const { errors, value } = portfolio.validateItem(req.body || {}, { partial: true });
+    const claim = errors.length ? [] : portfolio.checkClaims({ ...current, ...value });
+    if (errors.length || claim.length) return bad(res, [...errors, ...claim]);
+    res.json({ success: true, item: await portfolio.updateItem(pool, req.params.id, value) });
+  }));
+  router.delete('/portfolio/:id', wrap(async (req, res) => { if (!(await portfolio.deleteItem(pool, req.params.id))) return notFound(res); res.json({ success: true }); }));
+  router.post('/portfolio/import', wrap(async (req, res) => {
+    const out = await portfolio.importItems(pool, req.body && req.body.items, { dryRun: req.body && req.body.dryRun !== false });
+    if (out.error) return bad(res, [out.error]);
+    res.json({ success: true, dryRun: !(req.body && req.body.dryRun === false), ...out });
   }));
 
   router.get('/sync/status', wrap(async (_req, res) => {

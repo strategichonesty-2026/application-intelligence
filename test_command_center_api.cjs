@@ -17,7 +17,7 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
 (async () => {
   const pool = new Pool({ connectionString: process.env.AI_TEST_DATABASE_URL, ssl: false });
   await store.initSchema(pool);
-  await pool.query('DELETE FROM ai_repos'); await pool.query('DELETE FROM ai_applications'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");
+  await pool.query('DELETE FROM ai_repos'); await pool.query('DELETE FROM ai_applications'); await pool.query('DELETE FROM ai_portfolio_items'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");
 
   const env = { ...process.env };
   env.APP_INTELLIGENCE_OWNER_PASSWORD_HASH = await ownerAuth.hashPassword('dummy command center passphrase');
@@ -47,10 +47,12 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
   const call = (s, m, p, body, headers = { authorization: `Bearer ${owner}` }) => fetch(url(s) + p, { method: m, headers: { 'content-type': 'application/json', ...headers }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }));
 
   // ── authorization ──
-  const endpoints = [['GET', '/repos'], ['GET', '/repos/repo-1'], ['PATCH', '/repos/repo-1', { priority: 'hold' }], ['POST', '/sync'], ['GET', '/sync/status'], ['GET', '/attention']];
+  const endpoints = [['GET', '/repos'], ['GET', '/repos/repo-1'], ['PATCH', '/repos/repo-1', { priority: 'hold' }], ['POST', '/sync'], ['GET', '/sync/status'], ['GET', '/attention'], ['GET', '/portfolio'], ['POST', '/portfolio', { type: 'idea', title: 'x' }], ['PATCH', '/portfolio/pf-1', { title: 'y' }], ['DELETE', '/portfolio/pf-1'], ['POST', '/portfolio/import', { items: [{ type: 'idea', title: 'x' }], dryRun: false }]];
   let leaked = 0;
   for (const h of [{}, { 'x-api-key': env.API_SECRET_KEY }, { authorization: `Bearer ${studio}` }, { authorization: 'Bearer ' + 'a'.repeat(40) }]) for (const [m, p, b] of endpoints) { if ((await call(srv, m, p, b, h)).status !== 401) leaked++; }
   assert(leaked === 0 && (await repos.listRepos(pool)).length === 0, `authorization: all ${endpoints.length} endpoints answer 401 to anonymous callers, the shared API key and another application's session; nothing was written`);
+
+  assert((await pool.query('SELECT count(*)::int n FROM ai_portfolio_items')).rows[0].n === 0, 'authorization: nothing was written to the portfolio either');
 
   // ── list: three signals kept apart ──
   const mk = async (id, name, extra = {}, scan = null) => repos.upsertSynced(pool, { githubId: id, fullName: `acme-test/${name}`, name, htmlUrl: `https://github.com/acme-test/${name}`, visibility: 'private', archived: false, defaultBranch: 'main', description: '', language: 'JavaScript', pushedAt: new Date(NOW - 3 * 86400000).toISOString(), openPrs: 0, ...extra }, scan, NOW);
@@ -93,6 +95,26 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
   mode = 'ok';
   r = await call(srv, 'GET', '/sync/status'); assert(r.status === 200 && r.body.configured === true && r.body.owner === 'acme-test' && r.body.last && r.body.last.code === 'unauthorized', 'status: shows the last sync result, including a failure');
 
+  // ── portfolio ──
+  r = await call(srv, 'POST', '/portfolio', { type: 'risk', title: 'Fallback credential', body: 'Details here', repoName: 'media', level: 'high', evidenceLevel: 'verified', evidence: 'code review', evidenceCheckedAt: '2026-11-20' });
+  const pid = r.body.item && r.body.item.id;
+  assert(r.status === 201 && pid && r.body.item.level === 'high', 'portfolio: create a risk with its evidence and date');
+  r = await call(srv, 'POST', '/portfolio', { type: 'risk', title: 'Bad claim', evidenceLevel: 'verified' }); assert(r.status === 400 && /needs evidence/.test(r.body.error), 'portfolio: "verified" without evidence and a date is refused');
+  const leakVal = 'sk_' + 'a1b2c3d4e5f6a7b8c9d0e1f2';
+  r = await call(srv, 'POST', '/portfolio', { type: 'idea', title: 'x', body: leakVal }); assert(r.status === 400 && !JSON.stringify(r.body).includes(leakVal), 'portfolio: a secret-looking value is refused and not echoed');
+  await call(srv, 'POST', '/portfolio', { type: 'decision', title: 'Use a Postgres queue', status: 'decided', repoName: 'media' });
+  r = await call(srv, 'GET', '/portfolio?q=queue'); assert(r.status === 200 && r.body.items.length === 1 && r.body.items[0].title === 'Use a Postgres queue' && r.body.counts.risk === 1 && r.body.counts.decision === 1, 'portfolio: search finds the decision; counts per type are returned');
+  r = await call(srv, 'GET', '/portfolio?type=risk,decision&status=decided'); assert(r.body.items.length === 1, 'portfolio: filters by type list and status');
+  r = await call(srv, 'GET', '/portfolio?type=bogus'); assert(r.status === 200 && r.body.items.length === 2, 'portfolio: an unknown type filter is ignored, not an error');
+  r = await call(srv, 'PATCH', `/portfolio/${pid}`, { evidenceCheckedAt: null }); assert(r.status === 400 && /needs evidence/.test(r.body.error), 'portfolio: removing the date from a verified item is refused');
+  r = await call(srv, 'PATCH', `/portfolio/${pid}`, { evidenceLevel: 'inferred', status: 'done' }); assert(r.status === 200 && r.body.item.status === 'done' && r.body.item.title === 'Fallback credential', 'portfolio: a partial edit changes only what was sent');
+  r = await call(srv, 'PATCH', '/portfolio/pf-nope', { title: 'x' }); assert(r.status === 404, 'portfolio: editing an unknown item answers 404');
+  r = await call(srv, 'POST', '/portfolio/import', { items: [{ type: 'idea', title: 'Imported idea' }, { type: 'bogus', title: 'bad' }] });
+  assert(r.status === 200 && r.body.dryRun === true && r.body.added.length === 1 && r.body.invalid.length === 1 && (await call(srv, 'GET', '/portfolio')).body.items.length === 2, 'portfolio: import is a PREVIEW by default and writes nothing');
+  r = await call(srv, 'POST', '/portfolio/import', { items: [{ type: 'idea', title: 'Imported idea' }], dryRun: false }); assert(r.status === 200 && r.body.dryRun === false && r.body.added.length === 1 && (await call(srv, 'GET', '/portfolio')).body.items.length === 3, 'portfolio: import stores the valid records only when dryRun is explicitly false');
+  r = await call(srv, 'POST', '/portfolio/import', { items: [] }); assert(r.status === 400, 'portfolio: an empty import is refused');
+  r = await call(srv, 'DELETE', `/portfolio/${pid}`); assert(r.status === 200 && (await call(srv, 'DELETE', `/portfolio/${pid}`)).status === 404, 'portfolio: delete is real and a second delete answers 404');
+
   // ── attention ──
   r = await call(srv, 'GET', '/attention');
   const needs = r.body.items.find((i) => i.id === 'repos:need-type');
@@ -109,7 +131,7 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
   const bodies = JSON.stringify([(await call(srv, 'GET', '/repos')).body, (await call(srv, 'GET', '/sync/status')).body, (await call(srv, 'GET', '/attention')).body, (await call(srv, 'POST', '/sync')).body]);
   assert(!bodies.includes(TOKEN) && !bodies.includes('github_pat_'), 'security: the GitHub token never appears in any response');
 
-  await pool.query('DELETE FROM ai_repos'); await pool.query('DELETE FROM ai_applications'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");
+  await pool.query('DELETE FROM ai_repos'); await pool.query('DELETE FROM ai_applications'); await pool.query('DELETE FROM ai_portfolio_items'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");
   srv.close(); srvNoToken.close(); await pool.end();
   console.log(failures ? `\n${failures} FAILED` : '\nAll passed');
   process.exit(failures ? 1 : 0);
