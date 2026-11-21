@@ -1,0 +1,48 @@
+name: CI
+
+# Runs the existing test suite and the production build. No new packages.
+# Nothing here deploys, publishes or touches Railway.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      # Throwaway database that exists only for this run. Without it the DB
+      # integration tests print SKIPPED and would look like a pass.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: scratch
+          POSTGRES_DB: ai_scratch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      AI_TEST_DATABASE_URL: postgresql://postgres:scratch@127.0.0.1:5432/ai_scratch
+      # test_command_center_ui.cjs bundles into a temp folder and loads react via NODE_PATH.
+      NODE_PATH: ${{ github.workspace }}/node_modules
+      # The scratch database has no TLS; this is the documented switch for a local database.
+      APP_INTELLIGENCE_DB_SSL: 'off'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Test suite
+        run: npm test
+      - name: Production build
+        run: npm run build
