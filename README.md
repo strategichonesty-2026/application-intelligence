@@ -8,6 +8,8 @@ database, its own sign-in and its own address. It does not share code, secrets o
   (Travel Intelligence Agent) are never in Check all or any schedule.
 - **Secrets & Subscriptions.** A hand-kept register of credentials (names, variable names, where each is stored, status, who depends on it,
   rotation order) and paid subscriptions (price, renewal, caps). It stores **no secret values** and rejects anything that looks like one.
+- **Command Center.** Auto-discovers your GitHub repositories (read-only), keeps activity, deployment and health as three separate
+  signals, and adds a searchable Portfolio and an Open-source Library. See `docs/COMMAND_CENTER.md`.
 - **Honest status.** "Reachable" is not "Healthy"; a monitoring failure is not an application outage; unknown stays unknown.
 
 ## How it is built

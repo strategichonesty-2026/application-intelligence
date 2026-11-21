@@ -108,4 +108,19 @@ async function runSync(pool, { client, owner, now = new Date() }) {
 
 async function lastSync(pool) { return readJsonState(pool, STATE_KEY); }
 
-module.exports = { runSync, lastSync, scanRepo, STATE_KEY };
+/**
+ * The optional daily GitHub sync, called from the daily pass. Does nothing (and makes no request) unless a token is
+ * configured and APP_INTELLIGENCE_GITHUB_SYNC is not "off". Never throws: a failure is recorded in the sync status and
+ * must not stop the health pass from completing.
+ */
+async function scheduledSync(pool, { env = process.env, makeClient, now = new Date() } = {}) {
+  if (!env.GITHUB_TOKEN) return { skipped: true, reason: 'not_configured' };
+  if (String(env.APP_INTELLIGENCE_GITHUB_SYNC || 'on').trim().toLowerCase() === 'off') return { skipped: true, reason: 'disabled' };
+  try {
+    const github = require('./github.cjs');
+    const client = makeClient ? makeClient() : github.createClient({ token: env.GITHUB_TOKEN });
+    return await runSync(pool, { client, owner: String(env.GITHUB_OWNER || 'strategichonesty-2026'), now });
+  } catch (err) { return { ok: false, code: 'error', error: 'The scheduled GitHub sync failed.' }; }
+}
+
+module.exports = { runSync, scheduledSync, lastSync, scanRepo, STATE_KEY };

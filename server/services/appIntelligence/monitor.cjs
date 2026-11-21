@@ -19,6 +19,7 @@ const { runCheckWithRetry } = require('./checker.cjs');
 const alerts = require('./alerts.cjs');
 const { sendHeartbeat, heartbeatStatus } = require('./heartbeat.cjs');
 const { log } = require('./safe.cjs');
+const repoSync = require('./repoSync.cjs');
 
 const TICK_LOCK_KEY = 727002;
 const MAX_PARALLEL_CHECKS = 3; // each in-flight record holds one pool connection; the pass itself holds one more
@@ -94,7 +95,7 @@ async function checkAll(pool, { allowPrivate = false, check, env = process.env, 
  * Returns { skipped } when another instance holds the lock, otherwise { ok, checked, failedToRecord }.
  */
 async function tick(pool, opts = {}) {
-  const { allowPrivate = false, check, env = process.env, provider = alerts.createNotifier({ env }), heartbeat = sendHeartbeat, minGapMs = MIN_GAP_BETWEEN_PASSES_MS } = opts;
+  const { allowPrivate = false, check, env = process.env, provider = alerts.createNotifier({ env }), heartbeat = sendHeartbeat, githubSync = repoSync.scheduledSync, minGapMs = MIN_GAP_BETWEEN_PASSES_MS } = opts;
   let client;
   try { client = await pool.connect(); } catch (err) { state.lastTickError = 'database unavailable'; log.error('tick', err); return { ok: false, error: 'database' }; }
   try {
@@ -119,6 +120,8 @@ async function tick(pool, opts = {}) {
       });
       try { await alerts.dispatchDue(pool, provider); } catch (err) { log.error('alert dispatch', err); }
       try { await store.pruneChecks(pool, 30); } catch (err) { log.error('prune', err); } // once per daily pass
+      // Read-only GitHub repository sync, once per daily pass. Only runs when a token is set; a failure never blocks the pass.
+      try { await githubSync(pool, { env }); } catch (err) { log.error('github sync', err); }
 
       if (failedToRecord === 0) {
         state.lastCycleCompletedAt = new Date().toISOString();

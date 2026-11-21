@@ -149,6 +149,17 @@ function makeWorld() {
   const status = await sync.lastSync(pool);
   assert(status && status.owner === OWNER && typeof status.finishedAt === 'string', 'sync: a status row records when it ran and what happened');
 
+  // ── optional daily sync (offline: no token means no request at all) ──
+  let calls = 0; const mk = () => gh.createClient({ token: TOKEN, fetchImpl: async (...a) => { calls += 1; return w.fetch(...a); } });
+  const none = await sync.scheduledSync(pool, { env: {}, makeClient: mk, now: NOW });
+  assert(none.skipped && none.reason === 'not_configured' && calls === 0, 'daily sync: with no token it does nothing and makes no request');
+  const off = await sync.scheduledSync(pool, { env: { GITHUB_TOKEN: TOKEN, APP_INTELLIGENCE_GITHUB_SYNC: 'off' }, makeClient: mk, now: NOW });
+  assert(off.skipped && off.reason === 'disabled' && calls === 0, 'daily sync: APP_INTELLIGENCE_GITHUB_SYNC=off disables it even with a token');
+  const ran = await sync.scheduledSync(pool, { env: { GITHUB_TOKEN: TOKEN, GITHUB_OWNER: OWNER }, makeClient: mk, now: NOW });
+  assert(ran.ok === true && calls > 0, 'daily sync: with a token it runs the same read-only sync as the button');
+  const boom = await sync.scheduledSync(pool, { env: { GITHUB_TOKEN: TOKEN }, makeClient: () => { throw new Error('oops ' + TOKEN); }, now: NOW });
+  assert(boom.ok === false && !JSON.stringify(boom).includes(TOKEN), 'daily sync: a failure is returned, never thrown, and never contains the token');
+
   await pool.query('DELETE FROM ai_repos'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')"); await pool.end();
   console.log(failures ? `\n${failures} FAILED` : '\nAll passed');
   process.exit(failures ? 1 : 0);

@@ -19,6 +19,7 @@ Nothing here has been done. Every step that creates a service, a database or a D
    - **Sign-in, stronger:** `APP_INTELLIGENCE_OWNER_PASSWORD_HASH` and `APP_INTELLIGENCE_SESSION_SECRET` from `node server/scripts/hashOwnerPassword.cjs`, so no passphrase is stored as text. If both styles are set the hash wins. Railway can alter `$` signs in a pasted hash; a damaged hash is reported at start-up.
    - Optional: `APP_INTELLIGENCE_ENV=production`, `TRUST_PROXY_HOPS=1` (set 2 if Cloudflare also proxies the hostname), Resend and heartbeat variables.
    - Leave `APP_INTELLIGENCE_SCHEDULE` unset (monitoring stays manual).
+   - Command Center (optional): set `GITHUB_TOKEN` to a **read-only** fine-grained token you create yourself (see `docs/COMMAND_CENTER.md`). Without it the console works as before and **Sync now** says it is not set up.
 4. **Deploy**, then open the service address. You should see the sign-in screen. Check `GET /healthz` returns `{"status":"ok"}`.
 5. **Load the starting records**: sign in, open **Settings → Suggested starting records**, check the preview and click **Load missing records**. It adds only what is missing (applications are matched by web address, so ones you registered yourself are skipped), runs no check, and changes or deletes nothing. (The command-line seed scripts below do the same and are optional.)
 5b. **Seed from the command line** (optional, approval-gated), from your computer against the new database only:
