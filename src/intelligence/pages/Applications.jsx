@@ -7,8 +7,10 @@ import DataGate, { TableSkeleton } from '../ui/DataGate';
 import HealthTable from '../components/HealthTable';
 import MonitoringBanners from '../components/MonitoringBanners';
 import AppFormDialog from '../components/AppFormDialog';
+import RepoTable from '../components/RepoTable';
+import SyncBar from '../components/SyncBar';
 
-export default function Applications({ summaryRes, appsRes, route }) {
+export default function Applications({ summaryRes, appsRes, reposRes, route }) {
   const toast = useToast();
   const [registering, setRegistering] = useState(false);
   const [checkingAll, setCheckingAll] = useState(false);
@@ -42,13 +44,25 @@ export default function Applications({ summaryRes, appsRes, route }) {
       <div className="ai-page__head">
         <div>
           <h1 className="ai-page__title">Applications</h1>
-          <p className="ai-page__sub">Every registered application, its current status and how it is being checked.</p>
+          <p className="ai-page__sub">Every repository found on GitHub, with repository activity, deployment and application health kept apart.</p>
         </div>
         <div className="ai-card__actions">
           <Button icon="refresh" loading={checkingAll} disabled={Boolean(checkingId)} onClick={checkAll}>Check all</Button>
           <Button variant="primary" icon="plus" onClick={() => setRegistering(true)}>Register application</Button>
         </div>
       </div>
+      <DataGate res={reposRes} what="repositories" skeleton={<TableSkeleton rows={5} />}>
+        {({ repositories, counts, sync }) => (
+          <>
+            <SyncBar sync={sync} onDone={() => reposRes.reload()} />
+            <Card flush title="Repositories" subtitle="Found automatically. A type is suggested from the files; you confirm it.">
+              <RepoTable repos={repositories} needType={counts.needType} initialType={route.params.type} />
+            </Card>
+          </>
+        )}
+      </DataGate>
+      <h2 className="ai-page__title ai-mt" style={{ fontSize: 18 }}>Monitored applications</h2>
+      <p className="ai-page__sub" style={{ marginBottom: 12 }}>The applications whose live address is health-checked. Register one here, then link it to its repository.</p>
       <MonitoringBanners summary={summaryRes.data} apps={appsRes.data && appsRes.data.applications} />
       <Card flush>
         <DataGate res={appsRes} what="applications" skeleton={<TableSkeleton rows={5} />}>

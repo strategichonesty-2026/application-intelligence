@@ -375,3 +375,35 @@ html, body, #root { height: 100%; margin: 0; }
 @media (max-width: 640px) { .ai-acc__body { padding-left: var(--ai-s4); } }
 @media (prefers-reduced-motion: reduce) { .ai-acc__chev { transition: none; } }
 .ai-acc-card { margin-top: 16px; }
+
+/* ── Command Center: repositories ─────────────────────────────────────────────────────────────── */
+.ai-mt { margin-top: var(--ai-s4); }
+.ai-subhead { font-size: 13px; font-weight: 700; margin: var(--ai-s4) 0 var(--ai-s2); }
+.ai-note { margin: var(--ai-s3) var(--ai-s4) 0; padding: var(--ai-s3) var(--ai-s4); border: 1px solid var(--ai-warn-line); background: var(--ai-warn-bg); color: var(--ai-warn-fg); border-radius: var(--ai-radius-sm); font-size: 13px; }
+.ai-syncbar { display: flex; align-items: center; justify-content: space-between; gap: var(--ai-s4); flex-wrap: wrap; padding: var(--ai-s4); background: var(--ai-surface); border: 1px solid var(--ai-border); border-radius: var(--ai-radius); box-shadow: var(--ai-shadow); margin-bottom: var(--ai-s4); }
+.ai-signals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--ai-s4); }
+.ai-signal { background: var(--ai-surface); border: 1px solid var(--ai-border); border-radius: var(--ai-radius); padding: var(--ai-s4); box-shadow: var(--ai-shadow); }
+.ai-signal header { display: flex; justify-content: space-between; align-items: center; gap: var(--ai-s2); margin-bottom: var(--ai-s2); }
+.ai-signal h3 { font-size: 14px; font-weight: 700; margin: 0; }
+.ai-signal dl { margin: 0; }
+.ai-signal dl > div { display: flex; justify-content: space-between; gap: var(--ai-s3); padding: 6px 0; border-bottom: 1px solid var(--ai-border); font-size: 13px; }
+.ai-signal dt { color: var(--ai-muted); flex: none; }
+.ai-signal dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.ai-signal .ai-sub { margin-top: var(--ai-s2); }
+@media (max-width: 1100px) { .ai-signals { grid-template-columns: 1fr; } }
+
+/* ── Command Center: needs attention ──────────────────────────────────────────────────────────── */
+.ai-attn { list-style: none; margin: 0; padding: 0; }
+.ai-attn__item { display: flex; gap: var(--ai-s3); align-items: flex-start; flex-wrap: wrap; padding: var(--ai-s3) var(--ai-s4); border-bottom: 1px solid var(--ai-border); }
+.ai-attn__item:last-child { border-bottom: 0; }
+.ai-attn__main { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ai-attn__act { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.ai-attn__more { padding: var(--ai-s3) var(--ai-s4); font-size: 13px; }
+
+/* ── Command Center: portfolio ────────────────────────────────────────────────────────────────── */
+.ai-pf__badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 84px; }
+.ai-pf__actions { display: flex; gap: 2px; margin-left: auto; }
+.ai-import__box { width: 100%; box-sizing: border-box; font-family: var(--ai-mono); font-size: 12px; padding: var(--ai-s3); border: 1px solid var(--ai-border-strong); border-radius: var(--ai-radius-sm); resize: vertical; }
+
+/* ── Command Center: open-source library ──────────────────────────────────────────────────────── */
+.ai-attn__main a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }

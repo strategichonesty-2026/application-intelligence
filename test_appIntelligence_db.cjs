@@ -21,12 +21,12 @@ const run = (pool, id, check, extra = {}) => store.getApplication(pool, id).then
 
 (async () => {
   const pool = new Pool({ connectionString: url, max: 12 });
-  await pool.query('DROP TABLE IF EXISTS ai_alerts, ai_service_state, ai_checks, ai_incidents, ai_applications CASCADE');
+  await pool.query('DROP TABLE IF EXISTS ai_repos, ai_alerts, ai_service_state, ai_checks, ai_incidents, ai_applications CASCADE');
 
   // ── schema init: idempotent, and safe when several instances boot at once ──
   await Promise.all(Array.from({ length: 6 }, () => store.initSchema(pool)));
   await store.initSchema(pool);
-  assert((await q(pool, "SELECT count(*)::int n FROM information_schema.tables WHERE table_name LIKE 'ai\\_%'"))[0].n === 7, 'init: 6 concurrent initialisations + a re-run succeed; exactly 7 tables (5 monitoring + 2 inventory)');
+  assert((await q(pool, "SELECT count(*)::int n FROM information_schema.tables WHERE table_name LIKE 'ai\\_%'"))[0].n === 10, 'init: 6 concurrent initialisations + a re-run succeed; exactly 10 tables (5 monitoring + 2 inventory + 1 repository + 1 portfolio + 1 open-source library)');
   assert((await q(pool, "SELECT count(*)::int n FROM pg_indexes WHERE indexname = 'uq_ai_one_open_incident'"))[0].n === 1, 'init: one-open-incident unique index exists');
 
   // ── upgrade path: an older database whose slow_threshold_ms was NOT NULL DEFAULT 2000 ──
@@ -148,6 +148,11 @@ const run = (pool, id, check, extra = {}) => store.getApplication(pool, id).then
   assert(Boolean(await store.getServiceState(pool, 'last_cycle_completed_at')), 'scheduler: completed-cycle time is persisted for the dashboard');
   tk = await monitor.tick(pool, { allowPrivate: true, heartbeat, provider: okProv, env: {} });
   assert(hits === 1, 'scheduler: a second pass shortly after a completed one (restart / second instance / catch-up) is skipped: no repeat requests');
+  let ghCalls = 0; const b4 = beats;
+  tk = await monitor.tick(pool, { allowPrivate: true, heartbeat, provider: okProv, env: { GITHUB_TOKEN: 'dummy' }, minGapMs: 0, githubSync: async () => { ghCalls += 1; throw new Error('github is down'); } });
+  assert(ghCalls === 1 && tk.ok === true && beats === b4 + 1, 'scheduler: the daily GitHub sync runs inside the pass, and if it fails the health pass still completes and sends its heartbeat');
+  tk = await monitor.tick(pool, { allowPrivate: true, heartbeat, provider: okProv, env: {}, minGapMs: 0 });
+  assert(tk.ok === true, 'scheduler: with no GitHub token the default sync step is a harmless no-op');
   assert((await store.getApplication(pool, live.id)).lastOutcome === 'ok', 'end-to-end: real HTTP check persisted to Postgres');
   await pool.query("INSERT INTO ai_applications (id, name, url) VALUES ('legacy-row', 'Legacy', 'https://legacy.test/')");
   const legacy = await store.getApplication(pool, 'legacy-row');

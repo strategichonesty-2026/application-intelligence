@@ -8,8 +8,10 @@ import { IncidentFeed, ActivityFeed } from '../components/Feeds';
 import MonitoringBanners from '../components/MonitoringBanners';
 import AppFormDialog from '../components/AppFormDialog';
 import AskPanel from '../components/AskPanel';
+import AttentionList from '../components/AttentionList';
+import SyncBar from '../components/SyncBar';
 import { useResource } from '../data/useResource';
-import { monitoringApi } from '../data/api';
+import { monitoringApi, reposApi } from '../data/api';
 import { hrefTo } from '../data/useRoute';
 import { Skeleton } from '../ui/primitives';
 
@@ -23,13 +25,14 @@ function NoApplications({ onRegister }) {
   );
 }
 
-export default function Overview({ summaryRes, appsRes, route }) {
+export default function Overview({ summaryRes, appsRes, reposRes, route }) {
   const [registering, setRegistering] = useState(false);
   const incidents = useResource((s) => monitoringApi.incidents({ pageSize: 5 }, s), []);
   const activity = useResource((s) => monitoringApi.activity({ limit: 8 }, s), []);
+  const attention = useResource((s) => reposApi.attention(s), []);
   const filters = { status: route.params.status, env: route.params.env, q: route.params.q };
   const onFilters = (patch) => route.replaceParams({ ...route.params, ...patch });
-  const reloadAll = () => { appsRes.reload(); summaryRes.reload(); incidents.reload(); activity.reload(); };
+  const reloadAll = () => { appsRes.reload(); summaryRes.reload(); incidents.reload(); activity.reload(); attention.reload(); reposRes.reload(); };
 
   // One explanation, not four, when the API itself cannot be reached.
   const apiDown = summaryRes.error && !summaryRes.data && appsRes.error && !appsRes.data;
@@ -38,13 +41,20 @@ export default function Overview({ summaryRes, appsRes, route }) {
     <>
       <div className="ai-page__head">
         <div>
-          <h1 className="ai-page__title">Application Overview</h1>
+          <h1 className="ai-page__title">Overview</h1>
           <p className="ai-page__sub">The central monitoring view for every registered application. All figures come from real health checks, and nothing here is estimated.</p>
         </div>
         <Button variant="primary" icon="plus" onClick={() => setRegistering(true)}>Register application</Button>
       </div>
 
       {apiDown ? <Card><ApiErrorState error={summaryRes.error} onRetry={reloadAll} /></Card> : (<>
+      <DataGate res={reposRes} what="the GitHub sync status" skeleton={<Skeleton height={64} />}>
+        {({ sync }) => <SyncBar sync={sync} onDone={reloadAll} />}
+      </DataGate>
+      <DataGate res={attention} what="what needs attention" skeleton={<Skeleton height={160} />}>
+        {(data) => <AttentionList data={data} />}
+      </DataGate>
+
       <AskPanel />
 
       <DataGate res={summaryRes} what="the summary" skeleton={<div className="ai-summary">{[0, 1, 2, 3].map((i) => <Skeleton key={i} height={92} />)}</div>}>

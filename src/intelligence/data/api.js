@@ -92,6 +92,28 @@ export const signOut = () => clearSession();
 
 export const showcaseApi = { list: (signal) => request('/showcase', { signal }) };
 
+// Command Center: repositories. Read-only toward GitHub; owner decisions are saved on this console's own records.
+export const reposApi = {
+  list: (signal) => request('/repos', { signal }),
+  get: (id, signal) => request(`/repos/${encodeURIComponent(id)}`, { signal }),
+  update: (id, values) => request(`/repos/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }),
+  sync: () => request('/sync', { method: 'POST' }),
+  attention: (signal) => request('/attention', { signal }),
+};
+
+export const portfolioApi = {
+  list: (filters, signal) => request(`/portfolio${qs(filters)}`, { signal }),
+  save: (id, values) => (id ? request(`/portfolio/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }) : request('/portfolio', { method: 'POST', body: values })),
+  remove: (id) => request(`/portfolio/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  importItems: (items, dryRun) => request('/portfolio/import', { method: 'POST', body: { items, dryRun } }),
+};
+
+export const ossApi = {
+  list: (filters, signal) => request(`/oss${qs(filters)}`, { signal }),
+  save: (id, values) => (id ? request(`/oss/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }) : request('/oss', { method: 'POST', body: values })),
+  remove: (id) => request(`/oss/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+};
+
 export const monitoringApi = {
   summary: (signal) => request('/summary', { signal }),
   config: (signal) => request('/config', { signal }),
