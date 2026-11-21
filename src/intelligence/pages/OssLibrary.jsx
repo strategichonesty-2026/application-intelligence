@@ -55,7 +55,7 @@ export default function OssLibrary({ reposRes, route }) {
   const [editing, setEditing] = useState(null);
   const [deleting, setDeleting] = useState(null);
   const [busy, setBusy] = useState(false);
-  const repos = (reposRes.data && reposRes.data.repositories) || [];
+  const repos = useMemo(() => (reposRes.data && reposRes.data.repositories) || [], [reposRes.data]);
   const repoNames = useMemo(() => repos.map((r) => r.name).sort(), [repos]);
 
   const remove = async () => {

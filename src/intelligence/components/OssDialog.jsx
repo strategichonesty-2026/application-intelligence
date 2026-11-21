@@ -16,7 +16,7 @@ export default function OssDialog({ open, project, repoNames = [], onClose, onSa
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (open) { setV(fromItem(project)); setErr(''); } }, [open, project]);
   const set = (k) => (e) => setV((x) => ({ ...x, [k]: e.target.value }));
-  const pick = (k, map) => (p) => <select {...p} value={v[k]} onChange={set(k)}>{Object.entries(map).map(([id, m]) => <option key={id} value={id}>{typeof m === 'string' ? m : m.label}</option>)}</select>;
+  const pick = (k, map) => function Pick(p) { return <select {...p} value={v[k]} onChange={set(k)}>{Object.entries(map).map(([id, m]) => <option key={id} value={id}>{typeof m === 'string' ? m : m.label}</option>)}</select>; };
 
   const submit = async (e) => {
     e.preventDefault();

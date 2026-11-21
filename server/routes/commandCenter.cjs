@@ -29,7 +29,7 @@ const { log } = require('../services/appIntelligence/safe.cjs');
 const DEFAULT_OWNER = 'strategichonesty-2026';
 
 /** The three signals, side by side and never merged: activity (GitHub pushes), deployment (config / GitHub), health (checker). */
-function presentRepo(repo, appsById, now = new Date()) {
+function presentRepo(repo, appsById, now = new Date(), lastOkSyncStartedAt = null) {
   const eff = repos.effectiveKind(repo);
   const app = repo.appId ? appsById.get(repo.appId) : null;
   let health;
@@ -46,6 +46,8 @@ function presentRepo(repo, appsById, now = new Date()) {
     activity: { ...repos.repoActivity(repo, now.getTime()), pushedAt: repo.pushedAt, openPrs: repo.openPrs, defaultBranch: repo.defaultBranch, source: 'GitHub', readAt: repo.lastSeenAt },
     deployment: { state: repo.deployState, platform: repo.deployPlatform, evidence: repo.deployEvidence, checkedAt: repo.deployCheckedAt, source: 'GitHub deployments and config files' },
     health,
+    // Present only if the last complete sync did not see it: it was deleted, renamed away from this owner, or access was removed.
+    missing: Boolean(lastOkSyncStartedAt && repo.lastSeenAt && new Date(repo.lastSeenAt).getTime() < new Date(lastOkSyncStartedAt).getTime()),
     appId: repo.appId, scannedAt: repo.scannedAt, updatedAt: repo.updatedAt,
   };
 }
@@ -59,12 +61,13 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
     log.error(`${req.method} ${req.path}`, err);
     res.status(500).json({ success: false, error: 'The repository data could not be read. Please try again shortly.' });
   });
+  const lastOk = (last) => (last && last.ok && last.complete ? last.startedAt : null);
   const appsById = async () => new Map((await store.listApplications(pool)).map((a) => [a.id, a]));
 
   router.get('/repos', wrap(async (_req, res) => {
     const now = new Date();
     const [list, apps, last] = await Promise.all([repos.listRepos(pool), appsById(), repoSync.lastSync(pool)]);
-    const items = list.map((r) => presentRepo(r, apps, now));
+    const items = list.map((r) => presentRepo(r, apps, now, lastOk(last)));
     res.json({
       success: true, generatedAt: now.toISOString(), repositories: items,
       counts: { total: items.length, needType: items.filter((i) => !i.type.confirmed).length },
@@ -75,7 +78,7 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
   router.get('/repos/:id', wrap(async (req, res) => {
     const repo = await repos.getRepo(pool, req.params.id);
     if (!repo) return res.status(404).json({ success: false, error: 'Repository not found.' });
-    res.json({ success: true, repository: presentRepo(repo, await appsById(), new Date()) });
+    res.json({ success: true, repository: presentRepo(repo, await appsById(), new Date(), lastOk(await repoSync.lastSync(pool))) });
   }));
 
   router.patch('/repos/:id', wrap(async (req, res) => {
@@ -87,7 +90,7 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
     }
     const updated = await repos.updateOwner(pool, req.params.id, value);
     if (!updated) return res.status(404).json({ success: false, error: 'Repository not found.' });
-    res.json({ success: true, repository: presentRepo(updated, await appsById(), new Date()) });
+    res.json({ success: true, repository: presentRepo(updated, await appsById(), new Date(), lastOk(await repoSync.lastSync(pool))) });
   }));
 
   router.post('/sync', wrap(async (_req, res) => {
@@ -107,7 +110,7 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
     const result = buildAttention({
       apps: apps.map((a) => { const d = deriveStatus(a, now); return { id: a.id, name: a.name, status: d.status, monitoringFault: d.monitoringFault, suspect: Boolean(d.suspect), lastSummary: a.lastSummary, lastCheckedAt: a.lastCheckedAt }; }),
       credentials: creds, credentialReview: inventory.summarizeCredentials(creds, now.getTime()).needsReview,
-      renewals: inventory.upcomingDates(subs, now.getTime(), 14), repos: list.map((r) => presentRepo(r, byId, now)),
+      renewals: inventory.upcomingDates(subs, now.getTime(), 14), repos: list.map((r) => presentRepo(r, byId, now, lastOk(last))),
       sync: { configured: configured(), last },
     }, now.getTime());
     res.json({ success: true, generatedAt: now.toISOString(), ...result });

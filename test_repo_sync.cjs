@@ -149,6 +149,27 @@ function makeWorld() {
   const status = await sync.lastSync(pool);
   assert(status && status.owner === OWNER && typeof status.finishedAt === 'string', 'sync: a status row records when it ran and what happened');
 
+  // ── acceptance additions: archive without a push, and repositories that disappear ──
+  const t = (h) => new Date(NOW.getTime() + h * 3600e3);
+  const wa = makeWorld(); const ca = () => gh.createClient({ token: TOKEN, fetchImpl: wa.fetch });
+  await pool.query('DELETE FROM ai_repos'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");
+  await sync.runSync(pool, { client: ca(), owner: OWNER, now: t(1) });
+  wa.list.find((x) => x.name === 'gamma').archived = true; wa.bump(); // archiving does NOT change pushed_at
+  await sync.runSync(pool, { client: ca(), owner: OWNER, now: t(2) });
+  assert((await repos.listRepos(pool)).find((x) => x.name === 'gamma').suggestedKind === 'archive', 'archived on GitHub (no new push): the suggestion becomes "archive" on the next sync');
+  wa.list.find((x) => x.name === 'gamma').archived = false; wa.bump();
+  await sync.runSync(pool, { client: ca(), owner: OWNER, now: t(3) });
+  assert((await repos.listRepos(pool)).find((x) => x.name === 'gamma').suggestedKind !== 'archive', 'un-archived on GitHub: the "archive" suggestion is dropped');
+  const quiet = await sync.runSync(pool, { client: ca(), owner: OWNER, now: t(4) }); // nothing changed: 304
+  const seenAll = (await repos.listRepos(pool)).every((x) => new Date(x.lastSeenAt).getTime() === t(4).getTime());
+  assert(quiet.pagesNotModified >= 1 && seenAll && quiet.complete === true, 'a 304 page still counts its repositories as present, and the sync is marked complete');
+  wa.list = wa.list.filter((x) => x.name !== 'delta'); wa.bump();
+  const after = await sync.runSync(pool, { client: ca(), owner: OWNER, now: t(5) });
+  const rows5 = await repos.listRepos(pool);
+  assert(after.complete === true && rows5.find((x) => x.name === 'delta') && rows5.filter((x) => new Date(x.lastSeenAt).getTime() < t(5).getTime()).map((x) => x.name).join() === 'delta', 'a repository deleted on GitHub is kept but is the only one not seen in the latest complete sync');
+  const cc = require('./server/routes/commandCenter.cjs')._test;
+  assert(cc.presentRepo(rows5.find((x) => x.name === 'delta'), new Map(), t(5), after.startedAt).missing === true && cc.presentRepo(rows5.find((x) => x.name === 'alpha'), new Map(), t(5), after.startedAt).missing === false && cc.presentRepo(rows5.find((x) => x.name === 'delta'), new Map(), t(5), null).missing === false, 'the missing flag is set only for the unseen repository, and never when there is no complete sync to compare with');
+
   // ── optional daily sync (offline: no token means no request at all) ──
   let calls = 0; const mk = () => gh.createClient({ token: TOKEN, fetchImpl: async (...a) => { calls += 1; return w.fetch(...a); } });
   const none = await sync.scheduledSync(pool, { env: {}, makeClient: mk, now: NOW });

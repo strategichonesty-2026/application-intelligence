@@ -44,5 +44,11 @@ const mixed = run({ apps: [{ id: 'a', name: 'S', status: 'unhealthy' }], renewal
 assert(mixed.items.map((i) => i.level).join() === 'high,medium,low', 'order: High first, then Medium, then Low');
 const many = run({ credentials: Array.from({ length: 40 }, (_, i) => ({ id: `c${i}` })), credentialReview: Array.from({ length: 40 }, (_, i) => ({ id: `c${i}`, name: `K${i}`, status: 'exposed', reason: 'exposed' })) });
 assert(many.items.length === 25 && many.total === 40, 'cap: at most 25 items are returned, and the true total is reported');
+{
+  const gone = run({ repos: [repo({ id: 'repo-9', name: 'old-thing', missing: true }), repo({ id: 'repo-2', name: 'media' })] });
+  const it = gone.items.find((x) => x.id === 'repos:missing');
+  assert(it && it.level === 'medium' && /old-thing/.test(it.title) && !/media/.test(it.title) && /not list it/.test(it.evidence || it.why || JSON.stringify(it)), 'attention: a repository no longer found on GitHub is called out by name, with the reason');
+  assert(!run({ repos: [repo()] }).items.some((x) => x.id === 'repos:missing'), 'attention: nothing is said when no repository is missing');
+}
 console.log(failures ? `\n${failures} FAILED` : '\nAll passed');
 process.exit(failures ? 1 : 0);
