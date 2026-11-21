@@ -23,8 +23,8 @@ This is the recommended first setup. Nothing leaves your computer.
 - Inside any repository, `.env` and `.env.*` are already git-ignored; still keep this file elsewhere.
 - Turn on GitHub **secret scanning push protection** for your repositories (Settings → Code security) as a safety net. It cannot be verified from here; please confirm the setting.
 
-## 3. Guard rails the importer must have (part of the design; not built yet)
-1. Refuses to run unless the database host is `127.0.0.1`, `localhost` or a host on an explicit allow-list file you control; production hosts are never on it.
+## 3. Guard rails the importer has (built; see PIH_IMPORTER.md)
+1. Refuses to run unless the database host is `127.0.0.1`, `localhost` or `::1` (no allow-list: loopback only).
 2. Refuses if the database has the console's production marker (a setting row) or if the name looks like production.
 3. Never prints the connection string or any password; shows only host and database name.
 4. Reads export files read-only and never writes next to them.

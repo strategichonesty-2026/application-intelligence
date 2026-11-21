@@ -5,3 +5,10 @@ dist
 !.env.example
 *.log
 .DS_Store
+
+# Personal Intelligence Hub: never commit exports or samples
+conversations.json
+conversations-*.json
+*.zip
+pih-exports/
+pih-samples/
