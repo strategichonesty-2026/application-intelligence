@@ -6,11 +6,25 @@ Companion documents: [MISSION_CONTROL_OVERVIEW_SPEC.md](MISSION_CONTROL_OVERVIEW
 
 ## 1. Mission
 
+> **Understand what we own, remember what we discussed, discover useful open-source technology, match opportunities with existing assets, validate market demand and turn valuable opportunities into income.**
+>
 > **BUILD LESS FROM SCRATCH. CREATE MORE VALUE FROM WHAT WE ALREADY OWN.**
 >
 > Before building anything new: check what we already own, what open-source code we can reuse, and whether the business opportunity is real.
 
 One integrated system that understands our repositories and applications, our projects and intellectual property, our ChatGPT and Claude conversations, external open-source software, and external market research. It helps us decide what to **reuse, improve, integrate, commercialize or build**. The end goal is sustainable business opportunities and additional income.
+
+## 1a. Approved decisions (owner, 21 November 2026)
+Full wording and status are in the decision register of [CAPABILITY_GAP_ASSESSMENT.md](CAPABILITY_GAP_ASSESSMENT.md), section 5.
+- **A1** One **Portfolio** is the central register of ideas, decisions, opportunities, risks and actions; Hub findings are suggestions linked to their conversations.
+- **A2** Reuse the existing monitoring, alerts and health checks.
+- **A3** One shared recommendation engine for the attention list, What's wrong? and the weekly report.
+- **A4** Extend the existing Open-source Library with recurring discovery; no second library.
+- **A5** Repository discovery and source-code capability verification stay separate.
+- **A6 / D6** Read-only review of all 20 repositories (approved, not started).
+- **A7 / D3** Standard PR template with the six questions. **A8 / D4** Automated GitHub tests using the existing suite, no new package.
+- **A9 / D1** Local Hub data stays private; the deployed Overview shows "unavailable" until a secure, approved counts-only integration exists.
+- **D2** Agile and acceptance records reuse the existing PostgreSQL database, after backup verification and schema review. **D5** Branch dependencies verified before merging (finding: #4 conflicts with #2 in `.gitignore`).
 
 ## 2. State of the work today (verified 21 November 2026)
 
@@ -37,6 +51,7 @@ Each objective has **measures that come from real records**. No percentage is ty
 ### Objective 1: KNOW OUR ASSETS
 Keep an accurate inventory of every repository, application, service and product. For each one, in plain English: what it is, why it exists, the problem it solves, the features **actually implemented**, how to configure, run and use it, what depends on it, its deployment and health, what is unfinished, and its potential commercial value. Missing, incomplete or misleading descriptions are flagged.
 - Rule: never invent a feature. Facts come from source code, README files, configuration, routes and deployment information, each with a source and a date.
+- **Two separate things (owner decision A5):** *discovery* (the repository was found and its metadata read: this exists today) and *capability verification* (someone read the source and confirmed what is actually implemented: not built). A repository that is only discovered is never counted as verified.
 - Measures: repositories total; repositories with a confirmed type; repositories with an owner-confirmed purpose; repositories whose features list is evidence-backed; repositories with a missing or generic GitHub description (today, verified: `strategic-honesty-rag`, `personal-ai-studio`, `strategic-honesty-API` and `pfos-extractor` have none; `tts-worker` has only "wire video generation"); applications with a deployment state; applications with a real health check; repositories with unfinished work recorded.
 
 ### Objective 2: REMEMBER OUR KNOWLEDGE (Personal Intelligence Hub)
@@ -110,14 +125,17 @@ Today (verified): of 20 repositories, the Command Center is the only one this wo
 5. How will completion be verified (test, owner check, real data)?
 6. What remains unknown or unverified?
 ```
-Proposed home: `.github/pull_request_template.md`. It is a text file, not code; it is **not** added in this documentation PR (see roadmap Sprint 0, for the owner's decision).
+Home: `.github/pull_request_template.md`. The owner approved it (decision D3/A7). It is a text file, not code. It is **not added in this documentation PR** (documentation updates only); it is the first item of roadmap Sprint 0, as its own small PR.
 
 Existing standing rules still apply and are not weakened by this charter: GitHub-first, reuse over rebuild (`CLAUDE.md`); no production change without owner approval; no secrets in GitHub or chat; honest evidence ("unknown stays unknown"); conversations never leave the owner's computer without a separate approval.
 
 ## 7. Review rhythm
 - **Weekly (15 minutes):** the Overview's mission panel, the three recommended actions, blockers, anything stale.
 - **Every second week (sprint review):** move work between states with evidence, accept or reject opportunities, choose the next sprint.
-- The weekly review text is **rule-based from recorded data** (counts, stale items, blocked items). It names its sources and says plainly when a source is unavailable. AI-written summaries are a later, separately approved step.
+- The weekly review text is **rule-based from recorded data** (counts, stale items, blocked items), produced by the **same shared recommendation engine** as the attention list and What's wrong? (decision A3). It names its sources and says plainly when a source is unavailable. AI-written summaries are a later, separately approved step.
 
-## 8. What this charter does not do
+## 8. The Overview as the permanent mission review page
+The Overview becomes a visual Mission Control dashboard: mission progress with six objective bars, Agile management (sprint, Kanban board, dependencies, next three actions), operational monitoring, repository, open-source and opportunity intelligence, and business progress. Every figure links to its records and evidence; unavailable and not-verified states are shown plainly; nothing is fabricated. The layout, component inventory, KPI definitions, data sources, click-through behavior and responsive criteria are in [MISSION_CONTROL_OVERVIEW_SPEC.md](MISSION_CONTROL_OVERVIEW_SPEC.md). It uses only existing libraries and small hand-built components: no new paid service, monitoring platform, database or scheduler.
+
+## 9. What this charter does not do
 It does not implement the Overview, create tables, change code, merge any PR, deploy, or add infrastructure. Those happen in later sprints, each approved first ([MISSION_ROADMAP.md](MISSION_ROADMAP.md)).

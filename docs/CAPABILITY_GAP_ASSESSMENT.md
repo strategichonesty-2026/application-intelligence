@@ -1,6 +1,6 @@
 # Capability and gap assessment
 
-Status: assessment, 21 November 2026. Read-only inspection: GitHub PR state, the `application-intelligence` code on its branches, and GitHub repository metadata. No code, table or deployment was changed.
+Status: assessment, 21 November 2026; **updated the same day with the owner's approved decisions** (section 5). The decisions are recorded here; none has been implemented. Read-only inspection: GitHub PR state, the `application-intelligence` code on its branches, and GitHub repository metadata. No code, table or deployment was changed.
 Charter: [INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md](INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md).
 
 **How to read the tables.** *State* uses the charter's vocabulary. *Verified how* names the evidence. "Code" means the file was read; "tests" means a test covers it and was run by the development session (there is no automated CI); "owner" means the owner confirmed it. Anything without evidence says **not verified**.
@@ -25,6 +25,7 @@ Charter: [INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md](INTEGRATED_APPLICATION
 | Deployment status | Live | Root deploy-config file or GitHub deployment → `deployed / configured / failed / none / unknown` | code, tests |
 | Health | Live, **only when linked** | Existing health checker; unlinked repositories show "Not checked" | code, tests |
 | Priority | Live | Invest / Maintain / Hold / Retire (owner) | code |
+| **Discovery versus capability verification** (owner decision A5) | **Discovery exists** (the sync). **Capability verification does not**: nothing records that someone read the source and confirmed a feature. The two must be stored and counted separately, so that a repository being listed never counts as "verified". | `repoSync.cjs`, `repoScan.cjs` | code |
 | Flag missing or generic descriptions | **Not started** (the data is stored: `gh_description`) | None | By hand: `strategic-honesty-rag`, `personal-ai-studio`, `strategic-honesty-API`, `pfos-extractor` have no GitHub description; `tts-worker` has "wire video generation" |
 | Features **actually implemented** (from source, routes, config) | **Not started.** The scan reads the file list, `package.json`, `requirements.txt` and one README sentence. It does not read routes or features. | `repoScan.cjs` | code |
 | How to configure, run and use | Not started | none stored | n/a |
@@ -42,7 +43,7 @@ Charter: [INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md](INTEGRATED_APPLICATION
 | Search | Not started (the full-text pattern exists in Portfolio and can be reused) | `portfolio.cjs` | code |
 | Extraction of ideas, decisions, requirements, projects, commitments | Planned (PIH plan, PR 3) and **needs a separate approval** (AI provider, key, budget, retention terms) | plan | n/a |
 | Connect related discussions; find forgotten ideas | Planned (rule-based first, PIH plan section 6) | plan | n/a |
-| Hub data visible in the deployed console | **Blocked by a decision (D1 below)** | importer writes to a local database by design | n/a |
+| Hub data visible in the deployed console | **Deliberately unavailable (decisions D1 and A9).** The deployed Overview shows "unavailable" until a secure, approved counts-only integration exists. | importer writes to a local database by design | n/a |
 
 ### Objective 3: Open-source discovery
 | Capability | State | Evidence | Verified how |
@@ -89,39 +90,57 @@ Charter: [INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md](INTEGRATED_APPLICATION
 
 ## 3. Missing connections (the real gaps)
 1. **No real references between records.** Repository, Portfolio, Library and (later) Hub findings are linked only by free-text names. A rename breaks the link silently. Needed: record-to-record references (by id) in a small, additive way.
-2. **Hub data and the console are disconnected by design.** The importer is local-only; the console is deployed. Nothing can show Hub numbers on the Overview until D1 is decided.
+2. **Hub data and the console are disconnected by design.** The importer is local-only; the console is deployed. By decision D1 the Overview shows Hub figures as **unavailable** until a secure, approved counts-only integration exists.
 3. **No place to record "what a repository actually does".** The inventory knows type, stack, deploy and one README sentence, but not features, run instructions, dependencies or unfinished work, so Objective 4 cannot be answered from it.
 4. **No state history or acceptance records.** There is nothing the Overview can honestly count for progress. Without acceptance criteria records, any progress bar would be invented.
 5. **No automated outside discovery.** Everything in the Library is typed in by the owner.
 6. **No automated tests on GitHub.** Test results are only as fresh as the last developer-session run.
 7. **Unreviewed repositories.** 19 repositories have not been read beyond their GitHub metadata.
 
-## 4. Duplicated or overlapping capabilities (decisions needed; none was acted on)
-| # | Overlap | Evidence | Risk if left | Proposed decision |
+## 4. Duplicated or overlapping capabilities (outcome of the owner's review shown in the last column; none has been acted on in code)
+| # | Overlap | Evidence | Risk if left | Proposed decision → **Owner outcome** |
 |---|---|---|---|---|
-| O1 | **Hub findings vs Portfolio.** The plan's finding kinds (idea, opportunity, project, decision, requirement, action, problem, research question, preference) overlap Portfolio types (decision, risk, opportunity, idea, requirement, issue). | plan section 3; `portfolio.cjs` | Two registers of the same ideas | One register: Portfolio. Findings stay in the Hub as **suggestions with source quotes**; accepting one **creates a Portfolio item that links back** (already the plan's intent). Keep a single list of kinds. |
-| O2 | **Three "what should I do next" generators:** `attention.cjs` (Overview list), `briefing.cjs` (the Ask panel) and the planned PIH weekly report and Mission "next three actions". | code; plan | Three different answers to the same question | One rule engine feeds all of them; the weekly review is a rendering of the same items. |
-| O3 | **`strategic-honesty-monitor` vs this console.** The former is described on GitHub as a "credential + frontend-key monitor … Cloudflare Worker, cron every 15 min, alerts via ntfy". This console has Secrets & Subscriptions, a health checker and email alerts. | GitHub description; code | Two monitors, two alert channels, double maintenance | **Not verified in depth.** Read that repository, then decide: retire, keep as the 15-minute watchdog, or merge. |
-| O4 | **`Problem-Signal` vs SHIOS vs this console's Portfolio opportunities** for market evidence and opportunity validation. | GitHub description (Problem-Signal); SHIOS repository not read | Three places that claim to hold market evidence | **Not verified.** Read both, then assign one role each (collector of evidence vs register of decisions). |
-| O5 | **`shios-tracker` vs `SHIOS---Ai-Intelligence-Software`**, and **`personal-ai-studio` vs the media-studio repositories.** | names only; no description for `personal-ai-studio` | Possible duplicates | **Not verified.** Names suggest overlap; do not act until the inventory records what each does. |
-| O6 | **Open-source states vs Portfolio decisions**: Library `decision` (`to_evaluate/adopt/watch/reject`) vs Portfolio `status` (`open/decided/done/dropped`). | code | Same idea tracked in two vocabularies | Keep both modules; define the charter's four library states and map the old values (`to_evaluate`→discovered/evaluated, `adopt`→approved/adopted, `watch`→postponed, `reject`→rejected) in a migration plan before any change. |
+| O1 | **Hub findings vs Portfolio.** The plan's finding kinds (idea, opportunity, project, decision, requirement, action, problem, research question, preference) overlap Portfolio types (decision, risk, opportunity, idea, requirement, issue). | plan section 3; `portfolio.cjs` | Two registers of the same ideas | One register: Portfolio. Findings stay in the Hub as **suggestions with source quotes**; accepting one **creates a Portfolio item that links back** (already the plan's intent). Keep a single list of kinds. → **Approved (A1).** |
+| O2 | **Three "what should I do next" generators:** `attention.cjs` (Overview list), `briefing.cjs` (the Ask panel) and the planned PIH weekly report and Mission "next three actions". | code; plan | Three different answers to the same question | One rule engine feeds all of them; the weekly review is a rendering of the same items. → **Approved (A3).** |
+| O3 | **`strategic-honesty-monitor` vs this console.** The former is described on GitHub as a "credential + frontend-key monitor … Cloudflare Worker, cron every 15 min, alerts via ntfy". This console has Secrets & Subscriptions, a health checker and email alerts. | GitHub description; code | Two monitors, two alert channels, double maintenance | **Not verified in depth.** Read that repository, then decide: retire, keep as the 15-minute watchdog, or merge. → **Read-only review approved (A6, D6);** the decision follows the review. Existing monitoring, alerts and health checks are reused (A2). |
+| O4 | **`Problem-Signal` vs SHIOS vs this console's Portfolio opportunities** for market evidence and opportunity validation. | GitHub description (Problem-Signal); SHIOS repository not read | Three places that claim to hold market evidence | **Not verified.** Read both, then assign one role each (collector of evidence vs register of decisions). → **Review approved (A6, D6);** roles assigned afterwards. |
+| O5 | **`shios-tracker` vs `SHIOS---Ai-Intelligence-Software`**, and **`personal-ai-studio` vs the media-studio repositories.** | names only; no description for `personal-ai-studio` | Possible duplicates | **Not verified.** Names suggest overlap; do not act until the inventory records what each does. → **Review approved (A6, D6).** |
+| O6 | **Open-source states vs Portfolio decisions**: Library `decision` (`to_evaluate/adopt/watch/reject`) vs Portfolio `status` (`open/decided/done/dropped`). | code | Same idea tracked in two vocabularies | Keep both modules; define the charter's four library states and map the old values (`to_evaluate`→discovered/evaluated, `adopt`→approved/adopted, `watch`→postponed, `reject`→rejected) in a migration plan before any change. → **Approved (A4):** extend the existing Library; do not create another. |
 | O7 | **Importer's `raw_text` vs Hub plan's JSONB.** Documented deviation in `PIH_IMPORTER.md`; the plan document is updated in this PR. | docs | Plan says one thing, code another | Resolved by documentation (plan updated). |
 
-## 5. Decisions needed from the owner
-| ID | Decision | Options | Recommendation |
+## 5. Decision register (owner decisions of 21 November 2026)
+
+### Architectural decisions (approved after reviewing PR #5)
+| ID | Decision | What it means in practice | Status |
 |---|---|---|---|
-| D1 | How do Hub figures reach the Overview, given the importer is local-only? | (a) Show Hub panel as "unavailable" in production; run a **local copy** of the console for the Hub. (b) Importer also writes a **counts-only snapshot** (numbers, no titles, no text) that the owner pastes or uploads into the console. (c) A staging database used only by the Hub (cost; needs approval). | (b) later; (a) until then. Never conversation text in production without a separate approval. |
-| D2 | Where do acceptance criteria, sprints and business entries live? | (a) console tables; (b) a file in the repository | (a) after the backup check is done |
-| D3 | Add `.github/pull_request_template.md` with the six governance questions? | yes / no | yes (text only) |
-| D4 | Add a GitHub Actions test run (needs a Postgres service for the DB tests; free for this use) | yes / no | yes, as its own small PR; it makes "Tested" mean something |
-| D5 | Order of merges | #2 → #3 → #4 (or retarget #4) | After the owner's Railway backup check |
-| D6 | Allow a read-only look at the other 19 repositories (source, README, routes) to fill Objective 1 | yes / no, per repository (private repositories need access granted for the session) | yes, starting with the five flagged for descriptions plus Problem-Signal and SHIOS |
+| A1 | One **Portfolio** is the central register for ideas, decisions, opportunities, risks and actions. PIH findings are **suggestions linked to their original conversations**. | The Hub gets no second register; accepting a finding creates a Portfolio item that links back. Finding kinds are reduced to the Portfolio types plus project, action and research question. | Approved; not built |
+| A2 | **Reuse the existing application monitoring, alerts and health-check infrastructure.** | No second monitor. The Overview's operations panel reads the existing routes. | Approved |
+| A3 | **One shared recommendation engine** for the attention list, the What's wrong? panel and the future weekly intelligence report. | `attention.cjs` and `briefing.cjs` rules merge into one engine; the next three actions use it too. Rule-based, no AI. | Approved; not built |
+| A4 | **Extend the existing Open-source Library** with recurring discovery; no second library. | Four states and the discovery run are added to the existing table and screen. | Approved; not built |
+| A5 | **Keep repository discovery and source-code capability verification separate.** | Two separate fields and counts; "listed" never counts as "verified". | Approved; not built |
+| A6 | **Review all 20 repositories read-only** for duplicate projects, reusable code, missing descriptions and potential commercial assets. | Reading only: no repository code, settings or data is changed. Done as its own roadmap step, **not performed in this documentation update**. | Approved; **not started** |
+| A7 | **Add a standard PR template** with the six mission governance questions. | One text file, `.github/pull_request_template.md`. | Approved; **not added yet** (this PR is documentation only; roadmap Sprint 0) |
+| A8 | **Add automated GitHub tests** using the existing test suite, without unnecessary dependencies. | A GitHub Actions workflow that runs `npm test` on Node 20 with a Postgres service container for the database tests. Adds no package. Free-minute allowance for this account is **not verified** (the repository is public; the others are private). | Approved; **not added yet** |
+| A9 | **Local PIH conversation data stays private.** The deployed Overview shows **unavailable** until a secure, approved counts-only integration exists. | The aggregate route contains no Hub query; test enforces it. | Approved |
+
+### Decisions D1 to D6
+| ID | Decision | Detail | Status |
+|---|---|---|---|
+| D1 | The cloud Overview shows PIH as **unavailable** until a secure counts-only integration is approved. | Replaces the earlier options (a)/(b)/(c). A counts-only snapshot, if ever built, is a separate proposal with its own approval. | **Approved** |
+| D2 | Sprint and acceptance records **reuse the existing PostgreSQL database**, after **backup verification and schema review**. | Order: owner completes the Railway backup check and restore test (`BACKUP_AND_RESTORE.md`), then a schema review of the tables in the Overview spec section 6, then approval, then creation. | **Approved; blocked on the backup check** |
+| D3 | Standard PR governance template. | See A7. | **Approved** |
+| D4 | Automated GitHub testing. | See A8. | **Approved** |
+| D5 | **Verify PR branch dependencies before merging.** Intended sequence: #2, #3, #4, #5, with #4 retargeted to `main` if needed. | **Verified 21 November 2026 by rehearsal in a throwaway worktree (nothing was merged):** #2 merges into `main` cleanly. #3 merges cleanly after #2. **#4 conflicts after #2 in one file, `.gitignore`**, because both add lines at the end of it. #4 is based on #3's branch; once #2 and #3 are merged, #4 must be retargeted to `main` and updated, keeping **both** sets of ignore rules (additive, one file). #5 sits on #4 and inherits the same conflict until #4 is resolved. GitHub currently reports #4 and #5 as clean only against their own base branches. | **Approved; finding recorded; no merge done** |
+| D6 | **Read-only review of all 20 repositories is approved.** Do not change repository code, settings or data. | Same as A6. Private repositories need read access granted for the session; the review changes nothing in them. | **Approved; not started** |
+
+Suggested merge steps for the owner's approval (none is done): 1. complete the backup check; 2. merge #2; 3. merge #3; 4. retarget #4 to `main`, update it from `main` and keep both `.gitignore` blocks, re-run the tests, merge it; 5. retarget and merge #5; 6. then the small PR for the template and CI (A7, A8).
 
 ## 6. Final status summary
 
 **Already built (live):** Command Center Phase 1: repository inventory with classification, deploy state and linked health; Portfolio; Open-source Library (empty until filled); attention list; rule-based "What's wrong?"; owner sign-in; first real sync of 20 repositories.
-**Built, awaiting approval:** PR #2 (acceptance fixes, backup/restore guide, acceptance report); PR #3 (Hub design, documentation); PR #4 (local importer). None merged or deployed. This PR (mission documents, documentation only).
+**Built, awaiting approval:** PR #2 (acceptance fixes, backup/restore guide, acceptance report); PR #3 (Hub design, documentation); PR #4 (local importer). None merged or deployed. PR #5 (mission documents and the visual Overview specification, documentation only).
+**Approved but not yet built:** PR template and automated tests on GitHub (A7, A8); shared recommendation engine (A3); read-only review of the 20 repositories (A6, D6); separate discovery and capability verification (A5).
 **Planned:** Hub search; Hub extraction and weekly review (AI needs separate approval); Mission Control Overview; repository intelligence fields; open-source discovery with four states; opportunity matching and validation; income tracking.
 **Not started:** everything under "Not started" in section 2.
 **Verified:** PR states and bases on GitHub; the list of 20 repositories and six repository descriptions; the code facts cited above; 27 of 27 test files and 88 importer checks passing in the developer session.
-**Not verified:** real export formats; Railway backups and whether the daily job and email alerts are on in production; contents, features and health of the other 19 repositories; what SHIOS and Problem-Signal expose; every overlap in O3 to O5; model and provider terms for any AI step; test results on a clean machine (no CI).
+**Not verified:** real export formats; whether the free GitHub Actions allowance covers the private repositories; Railway backups and whether the daily job and email alerts are on in production; contents, features and health of the other 19 repositories; what SHIOS and Problem-Signal expose; every overlap in O3 to O5; model and provider terms for any AI step; test results on a clean machine (no CI).

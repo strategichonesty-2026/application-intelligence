@@ -20,9 +20,9 @@ Companion documents: `PIH_SECURITY_AND_STORAGE.md`, `PIH_LOCAL_SETUP.md`, `PIH_S
 - **Objective:** 2, "Remember our knowledge". The Hub feeds Objectives 4 and 5 (matching and validating opportunities) but does not replace the Portfolio or the Library.
 - **Reuse, do not duplicate:** the importer in PR #4 is the Hub's first and only importer. Later work extends it; it is not rebuilt.
 - **One register of ideas and decisions:** Hub findings are **suggestions with a source quote**. Accepting one **creates a Portfolio item that links back** to the conversation. The Hub keeps no second register (see overlap O1 in `CAPABILITY_GAP_ASSESSMENT.md`). The finding kinds in section 3 are to be reduced to the Portfolio's types plus the Hub-only kinds `project`, `action` and `research_question` before PR 3.
-- **Where Hub data lives:** by the owner's decision the importer writes to a **local** database. The deployed console therefore cannot show Hub figures on the Overview until decision D1 is made (`CAPABILITY_GAP_ASSESSMENT.md`, section 5). Until then the Overview shows "unavailable", never zero. Section 3's phrase "the console's own database" describes the later, separately approved design, not what is built.
+- **Where Hub data lives:** by the owner's decision the importer writes to a **local** database. The deployed console therefore cannot show Hub figures on the Overview until a secure, approved counts-only integration exists (decisions D1 and A9, `CAPABILITY_GAP_ASSESSMENT.md`, section 5). Until then the deployed Overview shows "unavailable", never zero, and no Hub number or text reaches production. Section 3's phrase "the console's own database" describes the later, separately approved design, not what is built.
 - **Every Hub pull request answers the six mission questions** (charter, section 6).
-- **Next step for the Hub:** Sprint 1 and Sprint 4 of `MISSION_ROADMAP.md` (validate the importer on real exports, then search). AI extraction stays Sprint 7 and needs its own approval.
+- **Next step for the Hub:** Sprint 2 and Sprint 7 of `MISSION_ROADMAP.md` (validate the importer on real exports, then local search). AI extraction stays Sprint 10 and needs its own approval.
 
 ## 0. What exists today (so nothing is re-built)
 | Item | State |
