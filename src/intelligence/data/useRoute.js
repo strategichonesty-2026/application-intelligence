@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 //   #/                                  overview
 //   #/applications                      applications
 //   #/applications/:id                  application details
+//   #/portfolio                         decisions, risks, opportunities and ideas
 //   #/health                            system health
 //   #/secrets                           secrets & subscriptions
 //   #/settings                          settings

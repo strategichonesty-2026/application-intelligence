@@ -399,3 +399,8 @@ html, body, #root { height: 100%; margin: 0; }
 .ai-attn__main { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .ai-attn__act { font-size: 13px; font-weight: 600; white-space: nowrap; }
 .ai-attn__more { padding: var(--ai-s3) var(--ai-s4); font-size: 13px; }
+
+/* ── Command Center: portfolio ────────────────────────────────────────────────────────────────── */
+.ai-pf__badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 84px; }
+.ai-pf__actions { display: flex; gap: 2px; margin-left: auto; }
+.ai-import__box { width: 100%; box-sizing: border-box; font-family: var(--ai-mono); font-size: 12px; padding: var(--ai-s3); border: 1px solid var(--ai-border-strong); border-radius: var(--ai-radius-sm); resize: vertical; }

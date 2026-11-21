@@ -101,6 +101,13 @@ export const reposApi = {
   attention: (signal) => request('/attention', { signal }),
 };
 
+export const portfolioApi = {
+  list: (filters, signal) => request(`/portfolio${qs(filters)}`, { signal }),
+  save: (id, values) => (id ? request(`/portfolio/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }) : request('/portfolio', { method: 'POST', body: values })),
+  remove: (id) => request(`/portfolio/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+  importItems: (items, dryRun) => request('/portfolio/import', { method: 'POST', body: { items, dryRun } }),
+};
+
 export const monitoringApi = {
   summary: (signal) => request('/summary', { signal }),
   config: (signal) => request('/config', { signal }),

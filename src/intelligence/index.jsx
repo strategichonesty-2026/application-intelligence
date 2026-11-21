@@ -10,6 +10,7 @@ import Overview from './pages/Overview';
 import Applications from './pages/Applications';
 import ApplicationDetail from './pages/ApplicationDetail';
 import RepoDetail from './pages/RepoDetail';
+import Portfolio from './pages/Portfolio';
 import SystemHealth from './pages/SystemHealth';
 import Settings from './pages/Settings';
 import SecretsSubscriptions from './pages/SecretsSubscriptions';
@@ -38,6 +39,7 @@ function Console() {
   else if (section === 'applications' && id && id.startsWith('repo-')) page = <RepoDetail key={id} id={id} appsRes={appsRes} reposRes={reposRes} />;
   else if (section === 'applications' && id) page = <ApplicationDetail key={id} id={id} appsRes={appsRes} summaryRes={summaryRes} />;
   else if (section === 'applications') page = <Applications summaryRes={summaryRes} appsRes={appsRes} reposRes={reposRes} route={route} />;
+  else if (section === 'portfolio') page = <Portfolio reposRes={reposRes} route={route} />;
   else if (section === 'health') page = <SystemHealth summaryRes={summaryRes} appsRes={appsRes} route={route} />;
   else if (section === 'secrets') page = <SecretsSubscriptions route={route} />;
   else if (section === 'settings') page = <Settings summaryRes={summaryRes} appsRes={appsRes} />;

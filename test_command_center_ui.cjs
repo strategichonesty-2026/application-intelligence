@@ -50,12 +50,18 @@ const repo = (o = {}) => ({
     import RepoTable from '${path.resolve('./src/intelligence/components/RepoTable.jsx')}';
     import SyncBar from '${path.resolve('./src/intelligence/components/SyncBar.jsx')}';
     import AttentionList, { linkFor } from '${path.resolve('./src/intelligence/components/AttentionList.jsx')}';
+    import { PortfolioRow } from '${path.resolve('./src/intelligence/pages/Portfolio.jsx')}';
+    import PortfolioImport from '${path.resolve('./src/intelligence/components/PortfolioImport.jsx')}';
+    import PortfolioDialog from '${path.resolve('./src/intelligence/components/PortfolioDialog.jsx')}';
     import { RepoDetailView } from '${path.resolve('./src/intelligence/pages/RepoDetail.jsx')}';
     const wrap = (el) => renderToStaticMarkup(React.createElement(ToastProvider, null, el));
     export const table = (repos, needType) => wrap(React.createElement(RepoTable, { repos, needType }));
     export const sync = (s) => wrap(React.createElement(SyncBar, { sync: s, onDone() {} }));
     export const attn = (data) => wrap(React.createElement(AttentionList, { data }));
     export const link = linkFor;
+    export const row = (item, repo) => wrap(React.createElement('ul', null, React.createElement(PortfolioRow, { item, repo, onEdit() {}, onDelete() {} })));
+    export const importer = () => wrap(React.createElement(PortfolioImport, { open: true, onClose() {}, onDone() {} }));
+    export const dialog = (item) => wrap(React.createElement(PortfolioDialog, { open: true, item, repoNames: ['alpha'], onClose() {}, onSaved() {} }));
     export const detail = (r, apps) => wrap(React.createElement(RepoDetailView, { repo: r, apps, onChanged() {} }));
   `;
   await esbuild.build({ stdin: { contents: entry, resolveDir: process.cwd(), loader: 'jsx' }, bundle: true, platform: 'node', format: 'cjs', outfile: out, jsx: 'automatic', external: ['react', 'react-dom'], define: { 'import.meta.env.DEV': 'false', 'import.meta.env.VITE_API_URL': 'undefined', 'import.meta.env': '{}' }, logLevel: 'silent', absWorkingDir: process.cwd(), nodePaths: [path.resolve('node_modules')] });
@@ -93,6 +99,25 @@ const repo = (o = {}) => ({
   const a0 = ui.attn({ items: [], total: 0, numbers });
   assert(/Nothing needs attention right now/.test(a0) && /not counted as fine/.test(a0), 'attention: an empty list says it is based on what was checked, never "all fine"');
   assert(ui.link('/secrets') === '#/secrets' && ui.link('/applications?type=needs_type') === '#/applications?type=needs_type' && ui.link('/') === '#', 'attention: server links become console links, with filters kept');
+
+  // ── portfolio ──
+  const pv = await import(`data:text/javascript;base64,${Buffer.from(fs.readFileSync('./src/intelligence/data/portfolioView.js', 'utf8')).toString('base64')}`);
+  assert(pv.TABS.map((t) => t.id).join() === 'all,decision,risk,opportunity,issue' && pv.tabById('risk').types.join() === 'risk' && pv.tabById('nope').id === 'all' && pv.tabById('opportunity').types.join() === 'opportunity,idea', 'portfolio tabs: five views, ideas grouped with opportunities, requirements with issues, unknown tab falls back to All');
+  assert(pv.parseImport('').error && pv.parseImport('not json').error && pv.parseImport('{"a":1}').error && pv.parseImport('[]').error && pv.parseImport(JSON.stringify(Array.from({ length: 101 }, () => ({})))).error, 'import parsing: empty, invalid, wrongly shaped, empty-list and over-100 inputs each give a plain error');
+  assert(pv.parseImport('[{"type":"idea","title":"x"}]').items.length === 1 && pv.parseImport(pv.IMPORT_EXAMPLE).items.length === 2, 'import parsing: a bare list and an {items} object both work, and the built-in example is valid');
+  assert(pv.importSummary({ dryRun: true, added: [1, 2], skipped: [1], invalid: [] }) === '2 would be added, 1 already there' && pv.importSummary({ dryRun: false, added: [1], skipped: [], invalid: [1, 2] }) === '1 added, 2 with problems', 'import summary: reads naturally for previews and results');
+  assert(pv.repoFor([{ id: 'r', name: 'Alpha', fullName: 'o/Alpha' }], ' alpha ').id === 'r' && pv.repoFor([], 'x') === null && pv.repoFor([{ id: 'r', name: 'a', fullName: 'o/a' }], '') === null, 'repository link: matches by name ignoring case and spaces; no name gives no link');
+  const pitem = { id: 'pf-1', type: 'risk', title: 'Fallback credential', body: 'A default is used.', repoName: 'alpha', status: 'open', level: 'high', evidence: 'code review', evidenceLevel: 'verified', evidenceCheckedAt: '2026-11-20', source: 'import' };
+  const prow = ui.row(pitem, { id: 'repo-9' });
+  assert(/Risk/.test(prow) && />High</.test(prow) && /Fallback credential/.test(prow) && /A default is used\./.test(prow) && />Verified</.test(prow) && /Evidence: code review/.test(prow) && /checked <time[^>]*>2026-11-20/.test(prow) && /imported/.test(prow), 'portfolio row: shows kind, level, title, details, evidence level, evidence text, the date checked and where it came from');
+  assert(/href="#\/applications\/repo-9"/.test(prow) && /Edit Fallback credential/.test(prow) && /Delete Fallback credential/.test(prow), 'portfolio row: links to the repository and offers edit and delete');
+  const bare = ui.row({ ...pitem, evidence: '', evidenceLevel: 'unverified', evidenceCheckedAt: null, level: null, source: 'owner' }, null);
+  assert(/No evidence recorded/.test(bare) && /never checked/.test(bare) && />Unverified</.test(bare) && !/href="#\/applications/.test(bare) && !/imported/.test(bare), 'portfolio row: with no evidence it says so plainly, shows no level badge and no link');
+  const imp = ui.importer();
+  assert(/Import portfolio records/.test(imp) && /stay in this console/.test(imp) && /Insert an example/.test(imp) && /Preview/.test(imp) && /<button[^>]*disabled=""[^>]*>[^<]*Add records/.test(imp), 'import dialog: explains where records stay, offers an example and a preview, and the add button is off until a preview exists');
+  const dlg = ui.dialog(null);
+  assert(/Add to the portfolio/.test(dlg) && /Never paste a key, token or password/.test(dlg) && /needs evidence and a date/.test(dlg) && /Verified/.test(dlg) && /alpha/.test(dlg), 'add dialog: warns against secrets, explains the "verified" rule and offers repository names');
+  assert(/Edit portfolio item/.test(ui.dialog(pitem)) && /value="Fallback credential"/.test(ui.dialog(pitem)), 'edit dialog: opens filled in with the existing item');
 
   fs.rmSync(path.dirname(out), { recursive: true, force: true });
   console.log(failures ? `\n${failures} FAILED` : '\nAll passed');
