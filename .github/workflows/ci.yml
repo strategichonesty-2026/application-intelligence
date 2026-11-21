@@ -31,6 +31,8 @@ jobs:
           --health-retries 10
     env:
       AI_TEST_DATABASE_URL: postgresql://postgres:scratch@127.0.0.1:5432/ai_scratch
+      # test_command_center_ui.cjs bundles into a temp folder and loads react via NODE_PATH.
+      NODE_PATH: ${{ github.workspace }}/node_modules
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,6 +40,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: DEBUG dbconfig output (temporary)
+        run: node test_dbconfig.cjs
+        continue-on-error: true
       - name: Test suite
         run: npm test
       - name: Production build
