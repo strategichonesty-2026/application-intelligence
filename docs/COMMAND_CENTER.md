@@ -6,6 +6,11 @@ opportunities, ideas) and **Open-source Library** (projects that could fill a ga
 
 Nothing here changes any application. GitHub is only ever **read**. All records live in this console's own database.
 
+## Mission alignment
+The Command Center supports **Objective 1 (Know our assets)** and **Objective 3 (Discover open-source technology)** of [INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md](INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md).
+Module boundaries: **Applications** = what we own; **Portfolio** = our own decisions, risks, ideas, opportunities, requirements; **Open-source Library** = outside GitHub projects we might reuse. A fact lives in one module and is linked from the others.
+Today the Library is filled by hand, has no automatic discovery, and uses the states `to_evaluate / adopt / watch / reject`; the charter's four separate states (discovered, evaluated, approved, adopted) and weekly discovery are planned (Sprint 5 in `MISSION_ROADMAP.md`). The repository inventory does not yet record what a repository actually does (Sprint 2). The Overview is proposed to become a mission review page (`MISSION_CONTROL_OVERVIEW_SPEC.md`); it is **unchanged** by this documentation.
+
 ## Three separate signals (never merged)
 | Signal | Where it comes from | Why it is separate |
 |---|---|---|

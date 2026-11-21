@@ -1,6 +1,6 @@
 # PIH importer (PR 1): local-only import of ChatGPT and Claude exports
 
-Status: built, tested, **not merged, not deployed**. It runs on your computer against a **local** PostgreSQL database. It sends nothing anywhere.
+Status: built, tested, **not merged, not deployed** (pull request #4; mission Objective 2, see `INTEGRATED_APPLICATION_INTELLIGENCE_MISSION.md`). It runs on your computer against a **local** PostgreSQL database. It sends nothing anywhere.
 
 ## What it does
 Reads the `conversations.json` files of a ChatGPT or Claude export and stores, in your local database:
