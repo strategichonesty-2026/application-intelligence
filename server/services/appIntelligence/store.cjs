@@ -100,6 +100,7 @@ async function initSchema(pool) {
     await client.query('SELECT pg_advisory_lock($1)', [SCHEMA_LOCK_KEY]);
     await client.query(SCHEMA);
     await client.query(require('./inventory.cjs').SCHEMA); // Secrets & Subscriptions inventory (metadata only)
+    await client.query(require('./repos.cjs').SCHEMA); // Command Center: repository inventory (references ai_applications)
   } finally {
     try { await client.query('SELECT pg_advisory_unlock($1)', [SCHEMA_LOCK_KEY]); } finally { client.release(); }
   }

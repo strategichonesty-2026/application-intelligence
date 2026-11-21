@@ -21,12 +21,12 @@ const run = (pool, id, check, extra = {}) => store.getApplication(pool, id).then
 
 (async () => {
   const pool = new Pool({ connectionString: url, max: 12 });
-  await pool.query('DROP TABLE IF EXISTS ai_alerts, ai_service_state, ai_checks, ai_incidents, ai_applications CASCADE');
+  await pool.query('DROP TABLE IF EXISTS ai_repos, ai_alerts, ai_service_state, ai_checks, ai_incidents, ai_applications CASCADE');
 
   // ── schema init: idempotent, and safe when several instances boot at once ──
   await Promise.all(Array.from({ length: 6 }, () => store.initSchema(pool)));
   await store.initSchema(pool);
-  assert((await q(pool, "SELECT count(*)::int n FROM information_schema.tables WHERE table_name LIKE 'ai\\_%'"))[0].n === 7, 'init: 6 concurrent initialisations + a re-run succeed; exactly 7 tables (5 monitoring + 2 inventory)');
+  assert((await q(pool, "SELECT count(*)::int n FROM information_schema.tables WHERE table_name LIKE 'ai\\_%'"))[0].n === 8, 'init: 6 concurrent initialisations + a re-run succeed; exactly 8 tables (5 monitoring + 2 inventory + 1 repository)');
   assert((await q(pool, "SELECT count(*)::int n FROM pg_indexes WHERE indexname = 'uq_ai_one_open_incident'"))[0].n === 1, 'init: one-open-incident unique index exists');
 
   // ── upgrade path: an older database whose slow_threshold_ms was NOT NULL DEFAULT 2000 ──
