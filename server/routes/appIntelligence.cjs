@@ -45,7 +45,7 @@ function present(app, latestIncident, now = new Date()) {
   };
 }
 
-function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_PRIVATE === 'true', check, env = process.env, provider = alerts.createNotifier({ env }), limiter = ownerAuth.createLoginLimiter(), failDelayMs = 250 } = {}) {
+function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_PRIVATE === 'true', check, env = process.env, provider = alerts.createNotifier({ env }), limiter = ownerAuth.createLoginLimiter(), failDelayMs = 250, githubClientFactory } = {}) {
   const router = express.Router();
   // req.ip, never the raw X-Forwarded-For header: Express applies it only for the trusted proxy hops.
   const clientKey = (req) => String(req.ip || (req.socket && req.socket.remoteAddress) || 'unknown');
@@ -389,6 +389,9 @@ function createRouter(pool, { allowPrivate = process.env.APP_INTELLIGENCE_ALLOW_
     const checks = await store.recentChecks(pool, { applicationId: req.query.application || undefined, limit: Math.min(Number(req.query.limit) || 15, 50) });
     res.json({ success: true, generatedAt: new Date().toISOString(), checks });
   }));
+
+  // Command Center (repositories, sync). Behind the same owner-only gate as everything above.
+  router.use(require('./commandCenter.cjs')(pool, { env, makeClient: githubClientFactory }));
 
   return router;
 }
