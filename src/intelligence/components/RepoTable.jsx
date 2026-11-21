@@ -54,7 +54,7 @@ export default function RepoTable({ repos, needType, initialType = 'all' }) {
                     {r.type.value ? <Badge tone={r.type.confirmed ? 'ok' : 'neutral'} title={r.type.evidence}>{KIND_LABEL[r.type.value]}{r.type.confirmed ? '' : ' (suggested)'}</Badge> : <Badge tone="warn">Needs a type</Badge>}
                   </td>
                   <td data-label="Priority"><PriorityBadge priority={r.priority} /></td>
-                  <td data-label="Activity"><Badge tone={act.tone} icon={act.icon}>{act.label}</Badge>{r.activity.days !== null && <span className="ai-sub">pushed {daysText(r.activity.days)}</span>}</td>
+                  <td data-label="Activity"><Badge tone={act.tone} icon={act.icon}>{act.label}</Badge>{r.activity.days !== null && <span className="ai-sub">pushed {daysText(r.activity.days)}</span>}{r.missing && <span className="ai-sub"><Badge tone="warn" icon="alert-triangle">Not found on GitHub</Badge></span>}</td>
                   <td data-label="Deployment"><Badge tone={dep.tone} icon={dep.icon} title={r.deployment.evidence}>{dep.label}</Badge>{r.deployment.platform && <span className="ai-sub">{r.deployment.platform}</span>}</td>
                   <td data-label="Health"><Badge tone={hl.tone} icon={hl.icon} title={r.health.note}>{hl.label}</Badge></td>
                 </tr>

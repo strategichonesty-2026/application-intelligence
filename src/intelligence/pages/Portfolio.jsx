@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import Icon from '../ui/Icon';
 import { Button, Card, IconButton, SearchBox } from '../ui/primitives';
 import { Badge } from '../ui/StatusBadge';
 import { StateMessage } from '../ui/StateMessage';
@@ -9,7 +8,7 @@ import { useToast } from '../ui/Toast';
 import { useResource } from '../data/useResource';
 import { portfolioApi } from '../data/api';
 import { hrefTo } from '../data/useRoute';
-import { absoluteTime, relativeTime } from '../data/format';
+import { absoluteTime } from '../data/format';
 import { TABS, tabById, TYPE_LABEL, STATUS_LABEL, LEVEL_META, EVIDENCE_META, repoFor } from '../data/portfolioView';
 import PortfolioDialog from '../components/PortfolioDialog';
 import PortfolioImport from '../components/PortfolioImport';
@@ -53,7 +52,7 @@ export default function Portfolio({ reposRes, route }) {
   const [importing, setImporting] = useState(false);
   const [deleting, setDeleting] = useState(null);
   const [busy, setBusy] = useState(false);
-  const repos = (reposRes.data && reposRes.data.repositories) || [];
+  const repos = useMemo(() => (reposRes.data && reposRes.data.repositories) || [], [reposRes.data]);
   const repoNames = useMemo(() => repos.map((r) => r.name).sort(), [repos]);
 
   const remove = async () => {

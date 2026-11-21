@@ -57,6 +57,7 @@ export function RepoDetailView({ repo, apps, onChanged }) {
         </div>
       </div>
 
+      {repo.missing && <div className="ai-callout ai-callout--warn" style={{ margin: '16px 0 0' }}><Icon name="alert-triangle" size={18} /><div><strong>Not found on GitHub.</strong> The latest complete sync did not list this repository. It may have been deleted, moved to another owner, or the token lost access. The details below are from the last time it was seen.</div></div>}
       <div className="ai-callout ai-callout--neutral" style={{ margin: '16px 0' }}><Icon name="info" size={18} /><div><strong>What this means.</strong> {readingOf(repo)}</div></div>
 
       <div className="ai-signals">

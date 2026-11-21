@@ -67,6 +67,8 @@ function buildAttention({ apps = [], credentials = [], credentialReview = [], re
     if (runnable && r.health.state === 'not_checked') add('medium', `repo:${r.id}:health`, `${r.name} is marked Invest but its health has never been checked`, r.appId ? 'Linked to a monitored application, no check recorded yet' : 'No monitored application is linked to this repository', r.health.lastCheckedAt || r.activity.readAt, 'Add the live URL and run a check', `/applications/${r.id}`);
     if (r.activity.state === 'dormant') add('medium', `repo:${r.id}:dormant`, `${r.name} is marked Invest but has had no push for ${r.activity.days} days`, 'GitHub push date', r.activity.readAt, 'Review the priority', `/applications/${r.id}`);
   }
+  const gone = repos.filter((r) => r.missing);
+  if (gone.length) add('medium', 'repos:missing', `${plural(gone.length, 'repository is', 'repositories are')} no longer found on GitHub: ${gone.slice(0, 3).map((r) => r.name).join(', ')}${gone.length > 3 ? '…' : ''}`, 'The latest complete sync did not list it. It may have been deleted, moved to another owner, or the token lost access', gone.map((r) => r.activity.readAt).filter(Boolean).sort().pop(), 'Check on GitHub, then archive or retire it here', '/applications');
   const idle = live.filter((r) => r.activity.state === 'dormant' && !r.priority);
   if (idle.length) add('low', 'repos:idle', `${plural(idle.length, 'repository has', 'repositories have')} had no push for 60+ days and no priority`, 'GitHub push dates', idle.map((r) => r.activity.readAt).filter(Boolean).sort().pop(), 'Choose Hold or Retire', '/applications');
 

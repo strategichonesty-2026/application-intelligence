@@ -66,20 +66,26 @@ async function runSync(pool, { client, owner, now = new Date() }) {
     const etags = (await readJsonState(pool, ETAG_KEY)) || {};
     const nextEtags = {};
     let url = '/user/repos?per_page=100&sort=pushed&affiliation=owner,collaborator,organization_member';
+    let truncated = false;
     for (let page = 0; url && page < MAX_PAGES; page += 1) {
-      const known = etags[url];
+      const known = etags[url] && Array.isArray(etags[url].ids) ? etags[url] : null; // older state without ids: just re-read the page
       const res = await client.get(url, { etag: known && known.etag });
-      if (res.notModified) { // nothing on this page changed: keep its stored ETag and carry on to the page after it
-        status.pagesNotModified += 1; nextEtags[url] = known; url = known.next || null; continue;
+      if (res.notModified) { // nothing on this page changed: keep its stored ETag, mark its repositories as still present, go to the next page
+        status.pagesNotModified += 1; nextEtags[url] = known; url = known.next || null;
+        if (known.ids.length) await pool.query('UPDATE ai_repos SET last_seen_at = $2 WHERE github_id = ANY($1::bigint[])', [known.ids, now]);
+        continue;
       }
-      if (res.etag) nextEtags[url] = { etag: res.etag, next: res.next };
+      const pageIds = [];
+      if (res.etag) nextEtags[url] = { etag: res.etag, next: res.next, ids: pageIds };
       const mine = res.data.filter((r) => r && r.owner && String(r.owner.login).toLowerCase() === owner.toLowerCase());
       for (const r of mine) {
-        if (status.found >= repos.MAX_REPOS) break;
-        status.found += 1;
+        if (status.found >= repos.MAX_REPOS) { truncated = true; break; }
+        status.found += 1; pageIds.push(r.id);
         const gh = { githubId: r.id, fullName: r.full_name, name: r.name, htmlUrl: r.html_url, visibility: r.private ? 'private' : 'public', archived: r.archived, defaultBranch: r.default_branch, description: r.description, language: r.language, pushedAt: r.pushed_at };
         let row = await repos.upsertSynced(pool, gh, null, now);
-        if (row.scanPushedAt && row.scanPushedAt === row.pushedAt) { status.unchanged += 1; continue; }
+        // Rescan only when the last push changed, or the archived flag no longer matches what the last scan concluded (archiving does not change the push date).
+        const archiveMismatch = Boolean(gh.archived) !== (row.suggestedKind === 'archive');
+        if (row.scanPushedAt && row.scanPushedAt === row.pushedAt && !archiveMismatch) { status.unchanged += 1; continue; }
         try {
           const { scan, openPrs } = await scanRepo(client, gh);
           row = await repos.saveScan(pool, row.id, scan, now);
@@ -92,6 +98,8 @@ async function runSync(pool, { client, owner, now = new Date() }) {
       }
       url = res.next;
     }
+    // "complete" = every page was read to the end, so a repository absent from this sync really is gone (used to flag missing ones).
+    status.complete = !url && !truncated;
     // Keep ETags for pages we saw; a page that moved simply gets a fresh one next time.
     await store.setServiceState(pool, ETAG_KEY, JSON.stringify(nextEtags));
     status.ok = true;

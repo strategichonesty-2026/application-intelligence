@@ -9,11 +9,11 @@ import { sampleScenario, signOut } from '../data/api';
 // Phase 1 only. Later phases add entries here; nothing unfinished is listed.
 const NAV = [
   { id: '', label: 'Overview', icon: 'dashboard' },
-  { id: 'applications', label: 'Applications', icon: 'apps' },
+  { id: 'applications', label: 'Applications', short: 'Apps', icon: 'apps' },
   { id: 'portfolio', label: 'Portfolio', icon: 'inbox' },
-  { id: 'library', label: 'Open-source Library', icon: 'inbox' },
-  { id: 'health', label: 'System Health', icon: 'activity' },
-  { id: 'secrets', label: 'Secrets & Subscriptions', icon: 'lock' },
+  { id: 'library', label: 'Open-source Library', short: 'Library', icon: 'inbox' },
+  { id: 'health', label: 'System Health', short: 'Health', icon: 'activity' },
+  { id: 'secrets', label: 'Secrets & Subscriptions', short: 'Secrets', icon: 'lock' },
   { id: 'settings', label: 'Settings', icon: 'settings' },
 ];
 
@@ -114,8 +114,8 @@ export default function Layout({ section, summary, lastSuccessAt, children }) {
       </div>
       <nav className="ai-mobnav" aria-label="Primary mobile">
         {NAV.map((n) => (
-          <a key={n.id} href={hrefTo(n.id ? `/${n.id}` : '')} aria-current={isCurrent(section, n.id) ? 'page' : undefined}>
-            <Icon name={n.icon} size={20} />{n.label}
+          <a key={n.id} href={hrefTo(n.id ? `/${n.id}` : '')} aria-current={isCurrent(section, n.id) ? 'page' : undefined} aria-label={n.label}>
+            <Icon name={n.icon} size={20} />{n.short || n.label}
           </a>
         ))}
       </nav>

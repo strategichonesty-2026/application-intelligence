@@ -9,7 +9,7 @@ import UptimeView from '../components/UptimeView';
 import { useResource } from '../data/useResource';
 import { monitoringApi } from '../data/api';
 import { hrefTo } from '../data/useRoute';
-import { absoluteTime, relativeTime, formatDuration, clockTime } from '../data/format';
+import { absoluteTime, relativeTime, formatDuration } from '../data/format';
 
 const RANGE_OPTIONS = [
   { value: 'all', label: 'All time' }, { value: '1h', label: 'Last hour' }, { value: '24h', label: 'Last 24 hours' },
