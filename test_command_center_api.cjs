@@ -47,7 +47,7 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
   const call = (s, m, p, body, headers = { authorization: `Bearer ${owner}` }) => fetch(url(s) + p, { method: m, headers: { 'content-type': 'application/json', ...headers }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }));
 
   // ── authorization ──
-  const endpoints = [['GET', '/repos'], ['GET', '/repos/repo-1'], ['PATCH', '/repos/repo-1', { priority: 'hold' }], ['POST', '/sync'], ['GET', '/sync/status']];
+  const endpoints = [['GET', '/repos'], ['GET', '/repos/repo-1'], ['PATCH', '/repos/repo-1', { priority: 'hold' }], ['POST', '/sync'], ['GET', '/sync/status'], ['GET', '/attention']];
   let leaked = 0;
   for (const h of [{}, { 'x-api-key': env.API_SECRET_KEY }, { authorization: `Bearer ${studio}` }, { authorization: 'Bearer ' + 'a'.repeat(40) }]) for (const [m, p, b] of endpoints) { if ((await call(srv, m, p, b, h)).status !== 401) leaked++; }
   assert(leaked === 0 && (await repos.listRepos(pool)).length === 0, `authorization: all ${endpoints.length} endpoints answer 401 to anonymous callers, the shared API key and another application's session; nothing was written`);
@@ -93,8 +93,20 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
   mode = 'ok';
   r = await call(srv, 'GET', '/sync/status'); assert(r.status === 200 && r.body.configured === true && r.body.owner === 'acme-test' && r.body.last && r.body.last.code === 'unauthorized', 'status: shows the last sync result, including a failure');
 
+  // ── attention ──
+  r = await call(srv, 'GET', '/attention');
+  const needs = r.body.items.find((i) => i.id === 'repos:need-type');
+  assert(r.status === 200 && r.body.success && Array.isArray(r.body.items) && r.body.numbers.repositories === 3, 'attention: returns items and the at-a-glance numbers');
+  assert(needs && /1 repository needs a confirmed type/.test(needs.title) && needs.evidence && needs.href, 'attention: the repository that still needs a type is listed, with evidence and a link');
+  assert(r.body.items.every((i) => i.level && i.label && i.title && i.evidence && i.action && i.href), 'attention: every item carries a level, evidence and an action');
+  await pool.query("INSERT INTO ai_credentials (id, name, status, verification) VALUES ('cred-att', 'Dummy provider key', 'exposed', 'inferred') ON CONFLICT (id) DO NOTHING");
+  r = await call(srv, 'GET', '/attention');
+  const cred = r.body.items.find((i) => i.id === 'cred:cred-att');
+  assert(cred && cred.level === 'high' && /inferred, not verified/.test(cred.evidence) && r.body.items[0].level === 'high', 'attention: an exposed credential from the register is High, honest about being unverified, and listed first');
+  await pool.query("DELETE FROM ai_credentials WHERE id = 'cred-att'");
+
   // ── nothing ever leaks the token ──
-  const bodies = JSON.stringify([(await call(srv, 'GET', '/repos')).body, (await call(srv, 'GET', '/sync/status')).body, (await call(srv, 'POST', '/sync')).body]);
+  const bodies = JSON.stringify([(await call(srv, 'GET', '/repos')).body, (await call(srv, 'GET', '/sync/status')).body, (await call(srv, 'GET', '/attention')).body, (await call(srv, 'POST', '/sync')).body]);
   assert(!bodies.includes(TOKEN) && !bodies.includes('github_pat_'), 'security: the GitHub token never appears in any response');
 
   await pool.query('DELETE FROM ai_repos'); await pool.query('DELETE FROM ai_applications'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");

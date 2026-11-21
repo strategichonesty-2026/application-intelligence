@@ -49,10 +49,13 @@ const repo = (o = {}) => ({
     import { ToastProvider } from '${path.resolve('./src/intelligence/ui/Toast.jsx')}';
     import RepoTable from '${path.resolve('./src/intelligence/components/RepoTable.jsx')}';
     import SyncBar from '${path.resolve('./src/intelligence/components/SyncBar.jsx')}';
+    import AttentionList, { linkFor } from '${path.resolve('./src/intelligence/components/AttentionList.jsx')}';
     import { RepoDetailView } from '${path.resolve('./src/intelligence/pages/RepoDetail.jsx')}';
     const wrap = (el) => renderToStaticMarkup(React.createElement(ToastProvider, null, el));
     export const table = (repos, needType) => wrap(React.createElement(RepoTable, { repos, needType }));
     export const sync = (s) => wrap(React.createElement(SyncBar, { sync: s, onDone() {} }));
+    export const attn = (data) => wrap(React.createElement(AttentionList, { data }));
+    export const link = linkFor;
     export const detail = (r, apps) => wrap(React.createElement(RepoDetailView, { repo: r, apps, onChanged() {} }));
   `;
   await esbuild.build({ stdin: { contents: entry, resolveDir: process.cwd(), loader: 'jsx' }, bundle: true, platform: 'node', format: 'cjs', outfile: out, jsx: 'automatic', external: ['react', 'react-dom'], define: { 'import.meta.env.DEV': 'false', 'import.meta.env.VITE_API_URL': 'undefined', 'import.meta.env': '{}' }, logLevel: 'silent', absWorkingDir: process.cwd(), nodePaths: [path.resolve('node_modules')] });
@@ -81,6 +84,15 @@ const repo = (o = {}) => ({
   assert(/Never sent to GitHub/.test(d) && /Open on GitHub/.test(d), 'detail: your notes are saved only here, and the GitHub link is separate');
   const withApp = ui.detail(repo({ appId: 'app-1', health: { state: 'healthy', note: '', lastCheckedAt: '2026-11-21T10:00:00Z', source: 'Health checker' }, type: { value: 'application', confirmed: true } }), [{ id: 'app-1', name: 'Media (live)' }]);
   assert(/Healthy/.test(withApp) && /Media \(live\)/.test(withApp) && /verified healthy/.test(withApp) && !/Confirm Application/.test(withApp), 'detail: a linked, confirmed application shows the checker\'s real result');
+
+  const item = { id: 'x', level: 'high', label: 'High', title: 'Provider key is recorded as exposed', evidence: 'Your Secrets & Subscriptions record (inferred, not verified)', checkedAt: '2026-11-21T10:00:00Z', action: 'Open Secrets & Subscriptions', href: '/secrets' };
+  const numbers = { repositories: 20, confirmedApplications: 3, pushedLast14Days: 4, needType: 8 };
+  const a1 = ui.attn({ items: [item, { ...item, id: 'y', level: 'low', label: 'Low', title: 'GitHub is not connected', href: '/applications?type=needs_type' }], total: 5, numbers });
+  assert(/Needs your attention/.test(a1) && />High</.test(a1) && /Provider key is recorded as exposed/.test(a1) && /Evidence: Your Secrets &amp; Subscriptions record \(inferred, not verified\)/.test(a1) && /read /.test(a1) && /Open Secrets &amp; Subscriptions/.test(a1), 'attention: each item shows its level, title, evidence, when it was read and an action');
+  assert(/3 more not shown/.test(a1) && /found on GitHub/.test(a1) && /not yet confirmed/.test(a1), 'attention: says how many items are hidden and shows the four at-a-glance numbers');
+  const a0 = ui.attn({ items: [], total: 0, numbers });
+  assert(/Nothing needs attention right now/.test(a0) && /not counted as fine/.test(a0), 'attention: an empty list says it is based on what was checked, never "all fine"');
+  assert(ui.link('/secrets') === '#/secrets' && ui.link('/applications?type=needs_type') === '#/applications?type=needs_type' && ui.link('/') === '#', 'attention: server links become console links, with filters kept');
 
   fs.rmSync(path.dirname(out), { recursive: true, force: true });
   console.log(failures ? `\n${failures} FAILED` : '\nAll passed');

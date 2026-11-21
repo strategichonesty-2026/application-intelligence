@@ -56,7 +56,7 @@ export default function Applications({ summaryRes, appsRes, reposRes, route }) {
           <>
             <SyncBar sync={sync} onDone={() => reposRes.reload()} />
             <Card flush title="Repositories" subtitle="Found automatically. A type is suggested from the files; you confirm it.">
-              <RepoTable repos={repositories} needType={counts.needType} />
+              <RepoTable repos={repositories} needType={counts.needType} initialType={route.params.type} />
             </Card>
           </>
         )}

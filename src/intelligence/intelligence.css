@@ -391,3 +391,11 @@ html, body, #root { height: 100%; margin: 0; }
 .ai-signal dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .ai-signal .ai-sub { margin-top: var(--ai-s2); }
 @media (max-width: 1100px) { .ai-signals { grid-template-columns: 1fr; } }
+
+/* ── Command Center: needs attention ──────────────────────────────────────────────────────────── */
+.ai-attn { list-style: none; margin: 0; padding: 0; }
+.ai-attn__item { display: flex; gap: var(--ai-s3); align-items: flex-start; flex-wrap: wrap; padding: var(--ai-s3) var(--ai-s4); border-bottom: 1px solid var(--ai-border); }
+.ai-attn__item:last-child { border-bottom: 0; }
+.ai-attn__main { flex: 1 1 260px; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ai-attn__act { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.ai-attn__more { padding: var(--ai-s3) var(--ai-s4); font-size: 13px; }

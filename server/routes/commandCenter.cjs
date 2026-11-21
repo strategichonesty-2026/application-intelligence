@@ -9,6 +9,7 @@
 //   PATCH /repos/:id        owner decisions: type, priority, purpose, live URL, link to a monitored application
 //   POST  /sync             pull from GitHub now (manual sync)
 //   GET   /sync/status      when the last sync ran and what happened; whether a token is configured
+//   GET   /attention        what needs the owner's attention, each item with its evidence and when it was read
 'use strict';
 
 const express = require('express');
@@ -16,6 +17,8 @@ const store = require('../services/appIntelligence/store.cjs');
 const repos = require('../services/appIntelligence/repos.cjs');
 const repoSync = require('../services/appIntelligence/repoSync.cjs');
 const github = require('../services/appIntelligence/github.cjs');
+const inventory = require('../services/appIntelligence/inventory.cjs');
+const { buildAttention } = require('../services/appIntelligence/attention.cjs');
 const { deriveStatus } = require('../services/appIntelligence/status.cjs');
 const { log } = require('../services/appIntelligence/safe.cjs');
 
@@ -91,6 +94,19 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
     if (status.ok) return res.json({ success: true, sync: status });
     const why = (status.errors.find((e) => e.message) || {}).message || 'The sync could not be completed.';
     return res.status(502).json({ success: false, code: status.code, error: why, sync: status });
+  }));
+
+  router.get('/attention', wrap(async (_req, res) => {
+    const now = new Date();
+    const [list, apps, creds, subs, last] = await Promise.all([repos.listRepos(pool), store.listApplications(pool), inventory.listCredentials(pool), inventory.listSubscriptions(pool), repoSync.lastSync(pool)]);
+    const byId = new Map(apps.map((a) => [a.id, a]));
+    const result = buildAttention({
+      apps: apps.map((a) => { const d = deriveStatus(a, now); return { id: a.id, name: a.name, status: d.status, monitoringFault: d.monitoringFault, suspect: Boolean(d.suspect), lastSummary: a.lastSummary, lastCheckedAt: a.lastCheckedAt }; }),
+      credentials: creds, credentialReview: inventory.summarizeCredentials(creds, now.getTime()).needsReview,
+      renewals: inventory.upcomingDates(subs, now.getTime(), 14), repos: list.map((r) => presentRepo(r, byId, now)),
+      sync: { configured: configured(), last },
+    }, now.getTime());
+    res.json({ success: true, generatedAt: now.toISOString(), ...result });
   }));
 
   router.get('/sync/status', wrap(async (_req, res) => {

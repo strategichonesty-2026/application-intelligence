@@ -11,8 +11,8 @@ export function PriorityBadge({ priority }) {
 }
 
 /** Every repository with its three signals in separate columns. Presentation only. */
-export default function RepoTable({ repos, needType }) {
-  const [type, setType] = useState('all');
+export default function RepoTable({ repos, needType, initialType = 'all' }) {
+  const [type, setType] = useState(TYPE_FILTERS.some((t) => t.value === initialType) ? initialType : 'all');
   const [priority, setPriority] = useState('all');
   const [q, setQ] = useState('');
   const rows = useMemo(() => sortRepos(filterRepos(repos, { type, priority, q })), [repos, type, priority, q]);

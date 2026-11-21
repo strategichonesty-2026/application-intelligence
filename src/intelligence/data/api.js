@@ -98,6 +98,7 @@ export const reposApi = {
   get: (id, signal) => request(`/repos/${encodeURIComponent(id)}`, { signal }),
   update: (id, values) => request(`/repos/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }),
   sync: () => request('/sync', { method: 'POST' }),
+  attention: (signal) => request('/attention', { signal }),
 };
 
 export const monitoringApi = {

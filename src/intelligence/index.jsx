@@ -34,7 +34,7 @@ function Console() {
   }, [appsRes.data]);
 
   let page;
-  if (section === '') page = <Overview summaryRes={summaryRes} appsRes={appsRes} route={route} />;
+  if (section === '') page = <Overview summaryRes={summaryRes} appsRes={appsRes} reposRes={reposRes} route={route} />;
   else if (section === 'applications' && id && id.startsWith('repo-')) page = <RepoDetail key={id} id={id} appsRes={appsRes} reposRes={reposRes} />;
   else if (section === 'applications' && id) page = <ApplicationDetail key={id} id={id} appsRes={appsRes} summaryRes={summaryRes} />;
   else if (section === 'applications') page = <Applications summaryRes={summaryRes} appsRes={appsRes} reposRes={reposRes} route={route} />;
