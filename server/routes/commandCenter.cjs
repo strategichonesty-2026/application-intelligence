@@ -88,7 +88,9 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
     let c; try { c = client(); } catch { return res.status(503).json({ success: false, code: 'github_not_configured', error: 'GitHub access is not set up. Add a read-only GITHUB_TOKEN on the server first.' }); }
     const status = await repoSync.runSync(pool, { client: c, owner: owner() });
     if (status.code === 'already_running') return res.status(409).json({ success: false, code: status.code, error: status.error });
-    return res.status(status.ok ? 200 : 502).json({ success: status.ok, sync: status });
+    if (status.ok) return res.json({ success: true, sync: status });
+    const why = (status.errors.find((e) => e.message) || {}).message || 'The sync could not be completed.';
+    return res.status(502).json({ success: false, code: status.code, error: why, sync: status });
   }));
 
   router.get('/sync/status', wrap(async (_req, res) => {

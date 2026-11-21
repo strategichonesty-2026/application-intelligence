@@ -92,6 +92,14 @@ export const signOut = () => clearSession();
 
 export const showcaseApi = { list: (signal) => request('/showcase', { signal }) };
 
+// Command Center: repositories. Read-only toward GitHub; owner decisions are saved on this console's own records.
+export const reposApi = {
+  list: (signal) => request('/repos', { signal }),
+  get: (id, signal) => request(`/repos/${encodeURIComponent(id)}`, { signal }),
+  update: (id, values) => request(`/repos/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }),
+  sync: () => request('/sync', { method: 'POST' }),
+};
+
 export const monitoringApi = {
   summary: (signal) => request('/summary', { signal }),
   config: (signal) => request('/config', { signal }),
