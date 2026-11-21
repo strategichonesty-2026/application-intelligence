@@ -53,12 +53,16 @@ const repo = (o = {}) => ({
     import { PortfolioRow } from '${path.resolve('./src/intelligence/pages/Portfolio.jsx')}';
     import PortfolioImport from '${path.resolve('./src/intelligence/components/PortfolioImport.jsx')}';
     import PortfolioDialog from '${path.resolve('./src/intelligence/components/PortfolioDialog.jsx')}';
+    import { OssRow } from '${path.resolve('./src/intelligence/pages/OssLibrary.jsx')}';
+    import OssDialog from '${path.resolve('./src/intelligence/components/OssDialog.jsx')}';
     import { RepoDetailView } from '${path.resolve('./src/intelligence/pages/RepoDetail.jsx')}';
     const wrap = (el) => renderToStaticMarkup(React.createElement(ToastProvider, null, el));
     export const table = (repos, needType) => wrap(React.createElement(RepoTable, { repos, needType }));
     export const sync = (s) => wrap(React.createElement(SyncBar, { sync: s, onDone() {} }));
     export const attn = (data) => wrap(React.createElement(AttentionList, { data }));
     export const link = linkFor;
+    export const ossRow = (project, repo) => wrap(React.createElement('ul', null, React.createElement(OssRow, { project, repo, onEdit() {}, onDelete() {} })));
+    export const ossDialog = (project) => wrap(React.createElement(OssDialog, { open: true, project, repoNames: ['alpha'], onClose() {}, onSaved() {} }));
     export const row = (item, repo) => wrap(React.createElement('ul', null, React.createElement(PortfolioRow, { item, repo, onEdit() {}, onDelete() {} })));
     export const importer = () => wrap(React.createElement(PortfolioImport, { open: true, onClose() {}, onDone() {} }));
     export const dialog = (item) => wrap(React.createElement(PortfolioDialog, { open: true, item, repoNames: ['alpha'], onClose() {}, onSaved() {} }));
@@ -118,6 +122,20 @@ const repo = (o = {}) => ({
   const dlg = ui.dialog(null);
   assert(/Add to the portfolio/.test(dlg) && /Never paste a key, token or password/.test(dlg) && /needs evidence and a date/.test(dlg) && /Verified/.test(dlg) && /alpha/.test(dlg), 'add dialog: warns against secrets, explains the "verified" rule and offers repository names');
   assert(/Edit portfolio item/.test(ui.dialog(pitem)) && /value="Fallback credential"/.test(ui.dialog(pitem)), 'edit dialog: opens filled in with the existing item');
+
+  // ── open-source library ──
+  const ov = await import(`data:text/javascript;base64,${Buffer.from(fs.readFileSync('./src/intelligence/data/ossView.js', 'utf8')).toString('base64')}`);
+  assert(ov.verification({ verified: true, verifiedAt: '2026-11-20', verifiedSource: 'repo page' }).state === 'verified' && ov.verification({ verified: false }).state === 'to_verify' && /unknown/.test(ov.verification({ verified: false }).text), 'library: a project is "verified" only when flagged so; otherwise "to verify" and every field is treated as unknown');
+  assert(ov.safeUrl('https://a.example') === 'https://a.example' && ov.safeUrl('javascript:alert(1)') === '' && ov.safeUrl('') === '' && ov.safeUrl(null) === '', 'library: only http(s) links are ever shown as links');
+  assert(ov.filterProjects([{ decision: 'adopt' }, { decision: 'watch' }], 'adopt').length === 1 && ov.filterProjects([{ decision: 'adopt' }], '').length === 1 && ov.DECISION_FILTERS.length === 5, 'library: decision filter');
+  const proj = { id: 'oss-1', name: 'Example Queue', url: 'https://example.com/q', gap: 'Background jobs', repoName: 'alpha', license: 'MIT', licenseClass: 'permissive', commercialNote: 'Fine for commercial use', maintenance: 'active', lastRelease: '2026-10-01', securityNote: 'No advisories seen', effort: 'low', decision: 'adopt', verified: true, verifiedAt: '2026-11-20', verifiedSource: 'repo page' };
+  const orow = ui.ossRow(proj, { id: 'repo-3' });
+  assert(/Example Queue/.test(orow) && /href="https:\/\/example\.com\/q"/.test(orow) && /rel="noopener noreferrer"/.test(orow) && /MIT · Permissive/.test(orow) && /Actively maintained/.test(orow) && /Last release: 2026-10-01/.test(orow) && /Effort: Low/.test(orow) && />Adopt</.test(orow) && />Verified</.test(orow) && /Checked 2026-11-20 · repo page/.test(orow) && /href="#\/applications\/repo-3"/.test(orow), 'library row: shows licence, maintenance, release, effort, decision, where and when it was checked, and links out safely');
+  const unk = ui.ossRow({ id: 'oss-2', name: 'Mystery', url: 'javascript:alert(1)', gap: '', repoName: '', license: '', licenseClass: 'unknown', commercialNote: '', maintenance: 'unknown', lastRelease: null, securityNote: '', effort: 'unknown', decision: 'to_evaluate', verified: false, verifiedAt: null, verifiedSource: '' }, null);
+  assert(/Licence not checked/.test(unk) && /Maintenance not checked/.test(unk) && /Last release: not checked/.test(unk) && /Not assessed/.test(unk) && />To verify</.test(unk) && !/href="javascript/.test(unk) && !/<a /.test(unk), 'library row: an unchecked project says "not checked" everywhere, claims nothing, and a non-web link is not clickable');
+  const od = ui.ossDialog(null);
+  assert(/Add an open-source project/.test(od) && /Only record what you have checked/.test(od) && /Licence not checked/.test(od) && /Date checked/.test(od) && /alpha/.test(od), 'library dialog: warns to record only checked facts, defaults to "not checked" and offers repository names');
+  assert(/Edit library entry/.test(ui.ossDialog(proj)) && /value="Example Queue"/.test(ui.ossDialog(proj)), 'library dialog: opens filled in for editing');
 
   fs.rmSync(path.dirname(out), { recursive: true, force: true });
   console.log(failures ? `\n${failures} FAILED` : '\nAll passed');

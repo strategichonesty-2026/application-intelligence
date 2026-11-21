@@ -10,6 +10,7 @@
 //   POST  /sync             pull from GitHub now (manual sync)
 //   GET   /sync/status      when the last sync ran and what happened; whether a token is configured
 //   GET   /portfolio        search the Master Portfolio (?q=&type=&status=&repo=); POST/PATCH/DELETE manage items; POST /portfolio/import
+//   GET   /oss              the Open-source Library (?q=&decision=&repo=); POST/PATCH/DELETE manage entries
 //   GET   /attention        what needs the owner's attention, each item with its evidence and when it was read
 'use strict';
 
@@ -20,6 +21,7 @@ const repoSync = require('../services/appIntelligence/repoSync.cjs');
 const github = require('../services/appIntelligence/github.cjs');
 const inventory = require('../services/appIntelligence/inventory.cjs');
 const portfolio = require('../services/appIntelligence/portfolio.cjs');
+const oss = require('../services/appIntelligence/oss.cjs');
 const { buildAttention } = require('../services/appIntelligence/attention.cjs');
 const { deriveStatus } = require('../services/appIntelligence/status.cjs');
 const { log } = require('../services/appIntelligence/safe.cjs');
@@ -141,6 +143,34 @@ function createRouter(pool, { env = process.env, makeClient } = {}) {
     if (out.error) return bad(res, [out.error]);
     res.json({ success: true, dryRun: !(req.body && req.body.dryRun === false), ...out });
   }));
+
+  // ── Open-source Library ──
+  const ossMissing = (res) => res.status(404).json({ success: false, error: 'Library entry not found.' });
+  router.get('/oss', wrap(async (req, res) => {
+    const decision = oss.DECISIONS.includes(req.query.decision) ? req.query.decision : undefined;
+    const projects = await oss.listProjects(pool, { q: req.query.q ? String(req.query.q) : undefined, decision, repo: req.query.repo ? String(req.query.repo).slice(0, 100) : undefined });
+    res.json({ success: true, generatedAt: new Date().toISOString(), projects, options: { licenseClasses: oss.LICENSE_CLASSES, maintenance: oss.MAINTENANCE, effort: oss.EFFORT, decisions: oss.DECISIONS } });
+  }));
+  router.post('/oss', wrap(async (req, res) => {
+    const { errors, value } = oss.validateProject(req.body || {});
+    const claim = errors.length ? [] : oss.checkClaims(value);
+    if (errors.length || claim.length) return bad(res, [...errors, ...claim]);
+    if ((await oss.totalRows(pool)) >= oss.MAX_ROWS) return bad(res, [`The library is full (${oss.MAX_ROWS} entries).`]);
+    const created = await oss.createProject(pool, value);
+    if (!created) return res.status(409).json({ success: false, error: 'That project is already in the library for this repository.' });
+    res.status(201).json({ success: true, project: created });
+  }));
+  router.patch('/oss/:id', wrap(async (req, res) => {
+    const current = await oss.getProject(pool, req.params.id);
+    if (!current) return ossMissing(res);
+    const { errors, value } = oss.validateProject(req.body || {}, { partial: true });
+    const claim = errors.length ? [] : oss.checkClaims({ ...current, ...value });
+    if (errors.length || claim.length) return bad(res, [...errors, ...claim]);
+    const updated = await oss.updateProject(pool, req.params.id, value);
+    if (updated === 'duplicate') return res.status(409).json({ success: false, error: 'That project is already in the library for this repository.' });
+    res.json({ success: true, project: updated });
+  }));
+  router.delete('/oss/:id', wrap(async (req, res) => { if (!(await oss.deleteProject(pool, req.params.id))) return ossMissing(res); res.json({ success: true }); }));
 
   router.get('/sync/status', wrap(async (_req, res) => {
     res.json({ success: true, configured: configured(), owner: owner(), last: await repoSync.lastSync(pool) });

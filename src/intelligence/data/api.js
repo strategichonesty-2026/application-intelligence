@@ -108,6 +108,12 @@ export const portfolioApi = {
   importItems: (items, dryRun) => request('/portfolio/import', { method: 'POST', body: { items, dryRun } }),
 };
 
+export const ossApi = {
+  list: (filters, signal) => request(`/oss${qs(filters)}`, { signal }),
+  save: (id, values) => (id ? request(`/oss/${encodeURIComponent(id)}`, { method: 'PATCH', body: values }) : request('/oss', { method: 'POST', body: values })),
+  remove: (id) => request(`/oss/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+};
+
 export const monitoringApi = {
   summary: (signal) => request('/summary', { signal }),
   config: (signal) => request('/config', { signal }),

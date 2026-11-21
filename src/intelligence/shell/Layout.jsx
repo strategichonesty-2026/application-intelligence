@@ -11,6 +11,7 @@ const NAV = [
   { id: '', label: 'Overview', icon: 'dashboard' },
   { id: 'applications', label: 'Applications', icon: 'apps' },
   { id: 'portfolio', label: 'Portfolio', icon: 'inbox' },
+  { id: 'library', label: 'Open-source Library', icon: 'inbox' },
   { id: 'health', label: 'System Health', icon: 'activity' },
   { id: 'secrets', label: 'Secrets & Subscriptions', icon: 'lock' },
   { id: 'settings', label: 'Settings', icon: 'settings' },

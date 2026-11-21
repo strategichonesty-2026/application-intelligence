@@ -17,7 +17,7 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
 (async () => {
   const pool = new Pool({ connectionString: process.env.AI_TEST_DATABASE_URL, ssl: false });
   await store.initSchema(pool);
-  await pool.query('DELETE FROM ai_repos'); await pool.query('DELETE FROM ai_applications'); await pool.query('DELETE FROM ai_portfolio_items'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");
+  await pool.query('DELETE FROM ai_repos'); await pool.query('DELETE FROM ai_applications'); await pool.query('DELETE FROM ai_portfolio_items'); await pool.query('DELETE FROM ai_oss_projects'); await pool.query("DELETE FROM ai_service_state WHERE key IN ('github_sync','github_list_etags')");
 
   const env = { ...process.env };
   env.APP_INTELLIGENCE_OWNER_PASSWORD_HASH = await ownerAuth.hashPassword('dummy command center passphrase');
@@ -47,7 +47,7 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
   const call = (s, m, p, body, headers = { authorization: `Bearer ${owner}` }) => fetch(url(s) + p, { method: m, headers: { 'content-type': 'application/json', ...headers }, body: body ? JSON.stringify(body) : undefined }).then(async (r) => ({ status: r.status, body: await r.json().catch(() => ({})) }));
 
   // ── authorization ──
-  const endpoints = [['GET', '/repos'], ['GET', '/repos/repo-1'], ['PATCH', '/repos/repo-1', { priority: 'hold' }], ['POST', '/sync'], ['GET', '/sync/status'], ['GET', '/attention'], ['GET', '/portfolio'], ['POST', '/portfolio', { type: 'idea', title: 'x' }], ['PATCH', '/portfolio/pf-1', { title: 'y' }], ['DELETE', '/portfolio/pf-1'], ['POST', '/portfolio/import', { items: [{ type: 'idea', title: 'x' }], dryRun: false }]];
+  const endpoints = [['GET', '/repos'], ['GET', '/repos/repo-1'], ['PATCH', '/repos/repo-1', { priority: 'hold' }], ['POST', '/sync'], ['GET', '/sync/status'], ['GET', '/attention'], ['GET', '/portfolio'], ['POST', '/portfolio', { type: 'idea', title: 'x' }], ['PATCH', '/portfolio/pf-1', { title: 'y' }], ['DELETE', '/portfolio/pf-1'], ['GET', '/oss'], ['POST', '/oss', { name: 'x' }], ['PATCH', '/oss/oss-1', { name: 'y' }], ['DELETE', '/oss/oss-1'], ['POST', '/portfolio/import', { items: [{ type: 'idea', title: 'x' }], dryRun: false }]];
   let leaked = 0;
   for (const h of [{}, { 'x-api-key': env.API_SECRET_KEY }, { authorization: `Bearer ${studio}` }, { authorization: 'Bearer ' + 'a'.repeat(40) }]) for (const [m, p, b] of endpoints) { if ((await call(srv, m, p, b, h)).status !== 401) leaked++; }
   assert(leaked === 0 && (await repos.listRepos(pool)).length === 0, `authorization: all ${endpoints.length} endpoints answer 401 to anonymous callers, the shared API key and another application's session; nothing was written`);
@@ -113,6 +113,17 @@ const NOW = new Date(Date.UTC(2026, 10, 21, 12));
   assert(r.status === 200 && r.body.dryRun === true && r.body.added.length === 1 && r.body.invalid.length === 1 && (await call(srv, 'GET', '/portfolio')).body.items.length === 2, 'portfolio: import is a PREVIEW by default and writes nothing');
   r = await call(srv, 'POST', '/portfolio/import', { items: [{ type: 'idea', title: 'Imported idea' }], dryRun: false }); assert(r.status === 200 && r.body.dryRun === false && r.body.added.length === 1 && (await call(srv, 'GET', '/portfolio')).body.items.length === 3, 'portfolio: import stores the valid records only when dryRun is explicitly false');
   r = await call(srv, 'POST', '/portfolio/import', { items: [] }); assert(r.status === 400, 'portfolio: an empty import is refused');
+  // ── open-source library ──
+  r = await call(srv, 'POST', '/oss', { name: 'Example Queue', url: 'https://example.com/q', gap: 'Jobs', repoName: 'media' }); const oid = r.body.project && r.body.project.id;
+  assert(r.status === 201 && oid && r.body.project.verified === false && r.body.project.licenseClass === 'unknown', 'oss: a new entry starts unverified with an unknown licence');
+  r = await call(srv, 'POST', '/oss', { name: 'example queue', repoName: 'MEDIA' }); assert(r.status === 409, 'oss: the same project for the same repository answers 409');
+  r = await call(srv, 'POST', '/oss', { name: 'Bad', url: 'javascript:alert(1)' }); assert(r.status === 400, 'oss: a non-web link is refused');
+  r = await call(srv, 'POST', '/oss', { name: 'Half', verifiedSource: 'page' }); assert(r.status === 400 && /both/.test(r.body.error), 'oss: a source without a date is refused');
+  r = await call(srv, 'PATCH', `/oss/${oid}`, { decision: 'adopt' }); assert(r.status === 400 && /adopt/.test(r.body.error), 'oss: "adopt" is refused until the facts are checked');
+  r = await call(srv, 'PATCH', `/oss/${oid}`, { decision: 'adopt', licenseClass: 'permissive', license: 'MIT', verifiedSource: 'repo page', verifiedAt: '2026-11-20' }); assert(r.status === 200 && r.body.project.verified === true && r.body.project.decision === 'adopt', 'oss: with licence, source and date the entry can be adopted');
+  r = await call(srv, 'GET', '/oss?q=jobs'); assert(r.status === 200 && r.body.projects.length === 1 && r.body.options.decisions.includes('watch'), 'oss: search works and the allowed options are returned');
+  r = await call(srv, 'PATCH', '/oss/oss-nope', { name: 'x' }); assert(r.status === 404, 'oss: editing an unknown entry answers 404');
+  r = await call(srv, 'DELETE', `/oss/${oid}`); assert(r.status === 200 && (await call(srv, 'DELETE', `/oss/${oid}`)).status === 404, 'oss: delete is real and a second delete answers 404');
   r = await call(srv, 'DELETE', `/portfolio/${pid}`); assert(r.status === 200 && (await call(srv, 'DELETE', `/portfolio/${pid}`)).status === 404, 'portfolio: delete is real and a second delete answers 404');
 
   // ── attention ──

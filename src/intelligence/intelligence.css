@@ -404,3 +404,6 @@ html, body, #root { height: 100%; margin: 0; }
 .ai-pf__badges { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; min-width: 84px; }
 .ai-pf__actions { display: flex; gap: 2px; margin-left: auto; }
 .ai-import__box { width: 100%; box-sizing: border-box; font-family: var(--ai-mono); font-size: 12px; padding: var(--ai-s3); border: 1px solid var(--ai-border-strong); border-radius: var(--ai-radius-sm); resize: vertical; }
+
+/* ── Command Center: open-source library ──────────────────────────────────────────────────────── */
+.ai-attn__main a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
