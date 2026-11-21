@@ -4,6 +4,18 @@ Status: **proposal only. Nothing in this document is built.** No code, tables, d
 Date: 21 November 2026. Source of truth: the actual code of `application-intelligence` (main) and, for storage and AI, `strategic-honesty-media-studio` (read-only look).
 Goal: never have to remember which chatbot, which month, or where a decision was left. Help the owner remember, connect, evaluate and act.
 
+## Decisions recorded (owner, 21 November 2026)
+1. The Hub stays **separate** from the Command Center. This pull request is **documentation only**: no code, tables or deployment changes.
+2. The first implementation uses a **local or staging database**. Personal conversations are **never imported into production**.
+3. First build: a **small local importer** for ChatGPT and Claude exports with **duplicate detection** and **preservation of the original conversation**.
+4. **No conversation content is sent to any AI provider** in the first implementation (PRs 3 and 6 below are out of scope until separately approved).
+5. **Private storage and security controls are designed before any cloud storage**; the existing public R2 URL approach must not be reused (see `PIH_SECURITY_AND_STORAGE.md`).
+6. Credentials are configured locally and never placed in GitHub or chat (see `PIH_LOCAL_SETUP.md`).
+7. A sample export format and a redaction procedure are provided (see `PIH_SAMPLE_EXPORTS.md`).
+8. The first release is **inexpensive and simple**: no vector database, no additional paid service, no new infrastructure.
+
+Companion documents: `PIH_SECURITY_AND_STORAGE.md`, `PIH_LOCAL_SETUP.md`, `PIH_SAMPLE_EXPORTS.md`; and, in the acceptance pull request, `BACKUP_AND_RESTORE.md`.
+
 ## 0. What exists today (so nothing is re-built)
 | Item | State |
 |---|---|
@@ -135,7 +147,15 @@ PR 1 (smallest useful) > PR 2 (control and safety) > PR 3 (AI, only after owner 
 
 Why this first: it solves "which chatbot, which month" immediately; it avoids every risky part (no upload endpoint, no public storage, no AI, no new service or cost); and it tells us the real size and shape of your history so every later decision (AI cost, whether you need more than full-text search) is made on facts.
 
-**Decisions needed from you before PR 1:** (a) approve a local import command rather than browser upload; (b) how you want to point it at the database from your computer (a connection string you keep out of chat and out of git); (c) a small redacted sample of each export so the importer is tested on real shapes.
+### Approvals needed before development of PR 1 begins
+1. **Design:** approve this plan and the three companion documents (or tell me what to change).
+2. **Local-only importer:** approve a command-line importer run on your computer (no upload page, no cloud storage) writing to a **local** PostgreSQL database; production and Railway hosts are refused.
+3. **Where it lives:** approve a new, separate branch and pull request for the importer, with any new tables created **only in the local database** (the console's startup schema is not changed in PR 1 unless you approve that separately).
+4. **Credentials method:** approve the local credential method in `PIH_LOCAL_SETUP.md` (environment file outside Git, password never on the command line).
+5. **Samples:** provide one structure-only sample of each export (`PIH_SAMPLE_EXPORTS.md`), or approve building from the synthetic examples only and adjusting later.
+6. **Dependencies:** approve **zero new dependencies** (you extract the ZIP first; Node reads the JSON files), or approve one small, widely used ZIP/streaming library if your files are too large to read in memory.
+7. **Scope guard:** confirm no AI, no object storage, no vector search and no staging database in PR 1.
+8. **Backups first:** complete the Railway backup check and restore test in `BACKUP_AND_RESTORE.md` and decide on PR #2.
 
 ### Sources consulted (public documentation and third-party parsers; none replaces a check against real files)
 - Claude Help Center: "Export your Claude data" (support.claude.com)
